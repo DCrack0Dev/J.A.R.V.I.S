@@ -567,7 +567,14 @@ export default function App() {
 
   // ── Schedule helpers ──────────────────────────────────────
   const now = getNow();
-  const todayData = (schedule && schedule[now.day]) ? schedule[now.day] : { theme: "", blocks: [] };
+  const getTodayData = () => {
+    if (schedule && schedule[now.day] && schedule[now.day].blocks?.length > 0) {
+      return schedule[now.day];
+    }
+    return SCHEDULE[now.day] || { theme: "", blocks: [] };
+  };
+
+  const todayData = getTodayData();
   const blocks = todayData.blocks || [];
 
   let currentBlock = null;
@@ -646,7 +653,9 @@ export default function App() {
     if (!MODEL_API_KEY) return null;
 
     const n = getNow();
-    const liveToday = SCHEDULE[n.day] || { theme: "", blocks: [] };
+    const liveToday = (schedule && schedule[n.day] && schedule[n.day].blocks?.length > 0) 
+      ? schedule[n.day] 
+      : SCHEDULE[n.day];
     const liveBlocks = liveToday.blocks;
     const liveCurrent = liveBlocks.find((b) => n.totalMinutes >= toMin(b.start) && n.totalMinutes < toMin(b.end)) || null;
     const liveNext = liveBlocks.find((b) => toMin(b.start) > n.totalMinutes) || null;
@@ -716,10 +725,14 @@ Intent: ${intent}`;
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) return;
 
+    if (recognitionRef.current) {
+      try { recognitionRef.current.abort(); } catch(_) {}
+    }
+
     const rec = new SR();
     rec.continuous = true;
     rec.interimResults = true;
-    rec.lang = "en-ZA";
+    rec.lang = "en-US";
     recognitionRef.current = rec;
     listeningRef.current = true;
     setOrbState("listening");
@@ -732,6 +745,9 @@ Intent: ${intent}`;
       for (let i = e.resultIndex; i < e.results.length; i += 1) {
         if (e.results[i].isFinal) {
           said += ` ${e.results[i][0].transcript}`;
+        } else {
+          // Update transcript in real-time so user knows Jarvis is hearing them
+          setTranscript(e.results[i][0].transcript.toLowerCase().trim());
         }
       }
       said = said.toLowerCase().trim();
@@ -938,7 +954,11 @@ Intent: ${intent}`;
   const startSession = useCallback(() => {
     setStarted(true);
     const n = getNow();
-    const theme = (schedule?.[n.day] || {}).theme || "";
+    const currentTodayData = (schedule && schedule[n.day] && schedule[n.day].blocks?.length > 0) 
+      ? schedule[n.day] 
+      : SCHEDULE[n.day];
+    
+    const theme = currentTodayData.theme || "";
     let welcome = `Hey Tebogo. Today is ${n.dayName}, theme is ${theme}. `;
     if (currentBlock) {
       welcome += `You're in your ${currentBlock.label} block — ${remaining} minutes left. `;
