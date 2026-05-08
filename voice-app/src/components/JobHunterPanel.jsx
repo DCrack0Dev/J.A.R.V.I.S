@@ -20,9 +20,12 @@ const JobHunterPanel = () => {
   const fetchInitialData = async () => {
     setLoading(true);
     try {
+      // Use the live Vercel URL if in production, otherwise localhost
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      
       const [jobsRes, profileRes] = await Promise.all([
-        fetch('http://localhost:3000/jobs'),
-        fetch('http://localhost:3000/jobs/profile')
+        fetch(`${baseUrl}/jobs`),
+        fetch(`${baseUrl}/jobs/profile`)
       ]);
       
       const jobsData = await jobsRes.json();
@@ -56,7 +59,8 @@ const JobHunterPanel = () => {
     formData.append('file', file);
 
     try {
-      const res = await fetch('http://localhost:3000/jobs/resume/upload', {
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      const res = await fetch(`${baseUrl}/jobs/resume/upload`, {
         method: 'POST',
         body: formData,
       });
@@ -73,7 +77,7 @@ const JobHunterPanel = () => {
       }
     } catch (error) {
       console.error('Upload failed', error);
-      alert(`Network error: ${error.message}. Is the backend running on port 3000?`);
+      alert(`Network error: ${error.message}.`);
     } finally {
       setIsUploading(false);
     }
@@ -87,13 +91,13 @@ const JobHunterPanel = () => {
         return;
       }
 
-      const res = await fetch('http://localhost:3000/jobs/profile', {
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      const res = await fetch(`${baseUrl}/jobs/profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           targetRoles: filteredRoles,
           summary: resumeText,
-          // For simplicity, we'll store resume in summary for now or add a specific field
         })
       });
 
@@ -109,7 +113,8 @@ const JobHunterPanel = () => {
   const handleRunScan = async () => {
     setIsScanning(true);
     try {
-      const res = await fetch('http://localhost:3000/jobs/scan', { method: 'POST' });
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      const res = await fetch(`${baseUrl}/jobs/scan`, { method: 'POST' });
       if (res.ok) {
         alert('Job scan initiated! Check back in a few minutes.');
       }
@@ -122,7 +127,8 @@ const JobHunterPanel = () => {
 
   const fetchJobs = async () => {
     try {
-      const response = await fetch('http://localhost:3000/jobs');
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      const response = await fetch(`${baseUrl}/jobs`);
       const data = await response.json();
       setJobs(data);
     } catch (error) {
@@ -135,7 +141,8 @@ const JobHunterPanel = () => {
   const handleApply = async (jobId) => {
     setApplyingId(jobId);
     try {
-      const response = await fetch(`http://localhost:3000/jobs/apply/${jobId}`, {
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      const response = await fetch(`${baseUrl}/jobs/apply/${jobId}`, {
         method: 'POST',
       });
       if (response.ok) {
