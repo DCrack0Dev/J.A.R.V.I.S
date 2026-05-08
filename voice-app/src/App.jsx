@@ -568,10 +568,12 @@ export default function App() {
   // ── Schedule helpers ──────────────────────────────────────
   const now = getNow();
   const getTodayData = () => {
-    if (schedule && schedule[now.day] && schedule[now.day].blocks?.length > 0) {
+    // Only use database schedule if it has a valid theme and blocks
+    if (schedule && schedule[now.day] && schedule[now.day].theme && schedule[now.day].blocks?.length > 0) {
       return schedule[now.day];
     }
-    return SCHEDULE[now.day] || { theme: "", blocks: [] };
+    // Fallback to hardcoded SCHEDULE
+    return SCHEDULE[now.day] || { theme: "Elite Operations", blocks: [] };
   };
 
   const todayData = getTodayData();
@@ -954,12 +956,16 @@ Intent: ${intent}`;
   const startSession = useCallback(() => {
     setStarted(true);
     const n = getNow();
-    const currentTodayData = (schedule && schedule[n.day] && schedule[n.day].blocks?.length > 0) 
-      ? schedule[n.day] 
-      : SCHEDULE[n.day];
     
-    const theme = currentTodayData.theme || "";
-    let welcome = `Hey Tebogo. Today is ${n.dayName}, theme is ${theme}. `;
+    // Robustly find the theme for the welcome message
+    let currentTheme = "";
+    if (schedule && schedule[n.day] && schedule[n.day].theme) {
+      currentTheme = schedule[n.day].theme;
+    } else {
+      currentTheme = SCHEDULE[n.day]?.theme || "Elite Operations";
+    }
+    
+    let welcome = `Hey Tebogo. Today is ${n.dayName}, theme is ${currentTheme}. `;
     if (currentBlock) {
       welcome += `You're in your ${currentBlock.label} block — ${remaining} minutes left. `;
     }

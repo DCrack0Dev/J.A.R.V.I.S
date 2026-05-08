@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import type { ScrapedJob, SearchCriteria, ApplicationStatus } from './types';
 import axios from 'axios';
-const pdf = require('pdf-parse');
+const pdfParse = require('pdf-parse');
 
 @Injectable()
 export class JobsService {
@@ -22,14 +22,14 @@ export class JobsService {
       this.logger.log(`Extracting text from PDF...`);
       let data;
       try {
-        data = await pdf(file.buffer);
+        // Use the default export behavior of the required module
+        data = await pdfParse(file.buffer);
       } catch (pdfError) {
         this.logger.error(`PDF Parse Error: ${pdfError.message}`);
         throw new Error('Failed to read PDF file. Ensure it is a valid, unencrypted PDF.');
       }
       
       const resumeText = data.text;
-
       if (!resumeText || resumeText.trim().length < 50) {
         throw new Error('Resume text extraction failed or text too short');
       }
