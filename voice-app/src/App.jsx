@@ -541,16 +541,26 @@ export default function App() {
   useEffect(() => {
     const initSchedule = async () => {
       try {
-        // Seed first
-        await fetch('http://localhost:3000/schedule/seed', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(SCHEDULE)
-        });
-
-        const res = await fetch('http://localhost:3000/schedule');
-        const data = await res.json();
-        setSchedule(data);
+        const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+        
+        // 1. Check if schedule exists in DB first
+        const checkRes = await fetch(`${baseUrl}/schedule`);
+        const existingData = await checkRes.json();
+        
+        // 2. If DB is empty, seed it with hardcoded SCHEDULE
+        if (!existingData || Object.keys(existingData).length === 0) {
+          console.log("Database schedule empty. Seeding initial data...");
+          await fetch(`${baseUrl}/schedule/seed`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(SCHEDULE)
+          });
+          const freshRes = await fetch(`${baseUrl}/schedule`);
+          const freshData = await freshRes.json();
+          setSchedule(freshData);
+        } else {
+          setSchedule(existingData);
+        }
       } catch (e) {
         console.error("Failed to sync schedule with backend", e);
         setSchedule(SCHEDULE); // Fallback to hardcoded

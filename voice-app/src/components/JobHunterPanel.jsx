@@ -77,7 +77,8 @@ const JobHunterPanel = () => {
       }
     } catch (error) {
       console.error('Upload failed', error);
-      alert(`Network error: ${error.message}.`);
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'the backend';
+      alert(`Network error: ${error.message}. Please ensure ${baseUrl} is reachable.`);
     } finally {
       setIsUploading(false);
     }
