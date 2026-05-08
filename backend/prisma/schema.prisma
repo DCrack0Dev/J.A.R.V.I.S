@@ -1,0 +1,144 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model JobListing {
+  id           String           @id @default(uuid()) @db.Uuid
+  externalId   String?          @map("external_id")
+  title        String
+  company      String
+  location     String?
+  isRemote     Boolean          @default(false) @map("is_remote")
+  description  String?
+  url          String
+  source       String
+  stackTags    String[]         @map("stack_tags")
+  salaryRange  String?          @map("salary_range")
+  postedAt     DateTime?        @map("posted_at")
+  scrapedAt    DateTime         @default(now()) @map("scraped_at")
+  isArchived   Boolean          @default(false) @map("is_archived")
+  applications JobApplication[]
+
+  @@unique([externalId, source])
+  @@map("job_listings")
+}
+
+model JobApplication {
+  id                String      @id @default(uuid()) @db.Uuid
+  listingId         String?     @map("listing_id") @db.Uuid
+  status            String      @default("pending_review")
+  coverLetter       String?     @map("cover_letter")
+  cvSnapshot        Json?       @map("cv_snapshot")
+  appliedAt         DateTime?   @map("applied_at")
+  lastStatusChange  DateTime    @default(now()) @map("last_status_change")
+  notes             String?
+  emailThreadId     String?     @map("email_thread_id")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  listing           JobListing? @relation(fields: [listingId], references: [id])
+
+  @@map("job_applications")
+}
+
+model UserProfile {
+  id           String   @id @default(uuid()) @db.Uuid
+  fullName     String?  @map("full_name")
+  email        String?
+  phone        String?
+  location     String?
+  linkedinUrl  String?  @map("linkedin_url")
+  githubUrl    String?  @map("github_url")
+  portfolioUrl String?  @map("portfolio_url")
+  summary      String?
+  skills       String[]
+  targetRoles  String[] @map("target_roles")
+  experience   Json?
+  education    Json?
+  updatedAt    DateTime @default(now()) @map("updated_at")
+
+  @@map("user_profile")
+}
+
+model GithubRepo {
+  id            String    @id @default(uuid()) @db.Uuid
+  repoId        BigInt    @unique @map("repo_id")
+  name          String
+  fullName      String    @map("full_name")
+  description   String?
+  url           String?
+  isPrivate     Boolean   @default(false) @map("is_private")
+  language      String?
+  stars         Int       @default(0)
+  forks         Int       @default(0)
+  openIssues    Int       @default(0) @map("open_issues")
+  topics        String[]
+  readmeContent String?   @map("readme_content")
+  readmeSha     String?   @map("readme_sha")
+  lastPushedAt  DateTime? @map("last_pushed_at")
+  lastSyncedAt  DateTime  @default(now()) @map("last_synced_at")
+  aiHealthScore Int?      @map("ai_health_score")
+  aiSuggestions Json?     @map("ai_suggestions")
+
+  @@map("github_repos")
+}
+
+model GithubProfile {
+  id                 String   @id @default(uuid()) @db.Uuid
+  username           String   @unique
+  displayName        String?  @map("display_name")
+  bio                String?
+  avatarUrl          String?  @map("avatar_url")
+  followers          Int?
+  following          Int?
+  publicRepos        Int?     @map("public_repos")
+  profileReadme      String?  @map("profile_readme")
+  profileReadmeSha   String?  @map("profile_readme_sha")
+  totalStars         Int?     @map("total_stars")
+  topLanguages       Json?    @map("top_languages")
+  contributionStreak Int?     @map("contribution_streak")
+  lastSyncedAt       DateTime @default(now()) @map("last_synced_at")
+
+  @@map("github_profile")
+}
+
+model GithubEdit {
+  id              String   @id @default(uuid()) @db.Uuid
+  repoFullName    String?  @map("repo_full_name")
+  editType        String   @map("edit_type")
+  originalContent String?  @map("original_content")
+  newContent      String?  @map("new_content")
+  aiPromptUsed    String?  @map("ai_prompt_used")
+  committedAt     DateTime? @map("committed_at")
+  commitSha       String?  @map("commit_sha")
+  status          String   @default("pending")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("github_edits")
+}
+
+model ScheduleDay {
+  id        String          @id @default(uuid()) @db.Uuid
+  day       String          @unique // mon, tue, wed, thu, fri, sat, sun
+  theme     String
+  blocks    ScheduleBlock[]
+  updatedAt DateTime        @default(now()) @map("updated_at")
+
+  @@map("schedule_days")
+}
+
+model ScheduleBlock {
+  id          String      @id @default(uuid()) @db.Uuid
+  dayId       String      @map("day_id") @db.Uuid
+  start       String      // "05:30"
+  end         String      // "06:00"
+  icon        String
+  label       String
+  detail      String
+  order       Int         @default(0)
+  day         ScheduleDay @relation(fields: [dayId], references: [id], onDelete: Cascade)
+
+  @@map("schedule_blocks")
+}

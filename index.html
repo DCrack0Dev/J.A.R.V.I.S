@@ -1,0 +1,848 @@
+<!DOCTYPE html> 
+ <html lang="en"> 
+ <head> 
+ <meta charset="UTF-8"> 
+ <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+ <title>Tebogo's Elite Weekly Schedule</title> 
+ <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"> 
+ <style> 
+   :root { 
+     --bg: #080c10; 
+     --surface: #0d1318; 
+     --surface2: #111820; 
+     --border: #1e2d3a; 
+     --accent-gold: #f0a500; 
+     --accent-cyber: #00e5ff; 
+     --accent-green: #39ff6a; 
+     --accent-red: #ff4757; 
+     --accent-purple: #9b6dff; 
+     --accent-orange: #ff6b35; 
+     --text: #e8edf2; 
+     --text-dim: #5a7080; 
+     --text-mid: #8fa3b1; 
+   } 
+  
+   * { margin: 0; padding: 0; box-sizing: border-box; } 
+  
+   body { 
+     background: var(--bg); 
+     color: var(--text); 
+     font-family: 'DM Sans', sans-serif; 
+     min-height: 100vh; 
+     overflow-x: hidden; 
+   } 
+  
+   /* NOISE TEXTURE */ 
+   body::before { 
+     content: ''; 
+     position: fixed; 
+     inset: 0; 
+     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E"); 
+     pointer-events: none; 
+     z-index: 0; 
+     opacity: 0.4; 
+   } 
+  
+   .container { 
+     max-width: 1100px; 
+     margin: 0 auto; 
+     padding: 40px 20px; 
+     position: relative; 
+     z-index: 1; 
+   } 
+  
+   /* HEADER */ 
+   header { 
+     margin-bottom: 48px; 
+     border-bottom: 1px solid var(--border); 
+     padding-bottom: 32px; 
+   } 
+  
+   .header-top { 
+     display: flex; 
+     justify-content: space-between; 
+     align-items: flex-start; 
+     flex-wrap: wrap; 
+     gap: 16px; 
+     margin-bottom: 16px; 
+   } 
+  
+   .title-block h1 { 
+     font-family: 'Bebas Neue', sans-serif; 
+     font-size: clamp(42px, 8vw, 80px); 
+     letter-spacing: 3px; 
+     line-height: 0.9; 
+     background: linear-gradient(135deg, var(--accent-gold) 0%, var(--accent-cyber) 100%); 
+     -webkit-background-clip: text; 
+     -webkit-text-fill-color: transparent; 
+     background-clip: text; 
+   } 
+  
+   .title-block .subtitle { 
+     font-family: 'DM Mono', monospace; 
+     font-size: 11px; 
+     color: var(--text-dim); 
+     letter-spacing: 3px; 
+     text-transform: uppercase; 
+     margin-top: 8px; 
+   } 
+  
+   .stats-row { 
+     display: flex; 
+     gap: 24px; 
+     flex-wrap: wrap; 
+     margin-top: 20px; 
+   } 
+  
+   .stat { 
+     display: flex; 
+     flex-direction: column; 
+     gap: 2px; 
+   } 
+  
+   .stat-value { 
+     font-family: 'Bebas Neue', sans-serif; 
+     font-size: 28px; 
+     color: var(--accent-gold); 
+     letter-spacing: 1px; 
+   } 
+  
+   .stat-label { 
+     font-family: 'DM Mono', monospace; 
+     font-size: 10px; 
+     color: var(--text-dim); 
+     letter-spacing: 2px; 
+     text-transform: uppercase; 
+   } 
+  
+   /* DAY TABS */ 
+   .day-tabs { 
+     display: flex; 
+     gap: 4px; 
+     margin-bottom: 32px; 
+     overflow-x: auto; 
+     padding-bottom: 4px; 
+     scrollbar-width: none; 
+   } 
+   .day-tabs::-webkit-scrollbar { display: none; } 
+  
+   .tab { 
+     font-family: 'DM Mono', monospace; 
+     font-size: 11px; 
+     letter-spacing: 2px; 
+     text-transform: uppercase; 
+     padding: 10px 18px; 
+     border: 1px solid var(--border); 
+     background: var(--surface); 
+     color: var(--text-dim); 
+     cursor: pointer; 
+     transition: all 0.2s ease; 
+     white-space: nowrap; 
+     border-radius: 2px; 
+   } 
+  
+   .tab:hover { 
+     color: var(--text); 
+     border-color: var(--accent-cyber); 
+   } 
+  
+   .tab.active { 
+     background: var(--accent-gold); 
+     color: var(--bg); 
+     border-color: var(--accent-gold); 
+     font-weight: 500; 
+   } 
+  
+   /* DAY VIEW */ 
+   .day-view { display: none; } 
+   .day-view.active { display: block; } 
+  
+   .day-header { 
+     display: flex; 
+     align-items: baseline; 
+     gap: 16px; 
+     margin-bottom: 28px; 
+     flex-wrap: wrap; 
+   } 
+  
+   .day-name { 
+     font-family: 'Bebas Neue', sans-serif; 
+     font-size: 52px; 
+     letter-spacing: 2px; 
+     line-height: 1; 
+   } 
+  
+   .day-theme { 
+     font-family: 'DM Mono', monospace; 
+     font-size: 12px; 
+     color: var(--text-dim); 
+     letter-spacing: 3px; 
+     text-transform: uppercase; 
+     border: 1px solid var(--border); 
+     padding: 4px 10px; 
+     border-radius: 2px; 
+   } 
+  
+   /* IMPROVEMENT BANNER */ 
+   .improvement-banner { 
+     background: linear-gradient(135deg, rgba(240,165,0,0.08) 0%, rgba(0,229,255,0.05) 100%); 
+     border: 1px solid rgba(240,165,0,0.2); 
+     border-radius: 4px; 
+     padding: 16px 20px; 
+     margin-bottom: 28px; 
+     font-size: 13px; 
+     color: var(--text-mid); 
+     line-height: 1.6; 
+   } 
+  
+   .improvement-banner strong { 
+     color: var(--accent-gold); 
+     font-weight: 600; 
+   } 
+  
+   /* SCHEDULE TIMELINE */ 
+   .timeline { 
+     display: flex; 
+     flex-direction: column; 
+     gap: 4px; 
+     margin-bottom: 32px; 
+   } 
+  
+   .block { 
+     display: grid; 
+     grid-template-columns: 120px 1fr; 
+     gap: 0; 
+     border-radius: 3px; 
+     overflow: hidden; 
+     transition: transform 0.15s ease; 
+   } 
+  
+   .block:hover { transform: translateX(3px); } 
+  
+   .block-time { 
+     background: var(--surface); 
+     border: 1px solid var(--border); 
+     border-right: none; 
+     padding: 14px 12px; 
+     font-family: 'DM Mono', monospace; 
+     font-size: 10px; 
+     color: var(--text-dim); 
+     letter-spacing: 1px; 
+     display: flex; 
+     align-items: center; 
+   } 
+  
+   .block-content { 
+     border: 1px solid var(--border); 
+     padding: 14px 18px; 
+     display: flex; 
+     align-items: center; 
+     gap: 12px; 
+     position: relative; 
+   } 
+  
+   .block-content::before { 
+     content: ''; 
+     position: absolute; 
+     left: 0; 
+     top: 0; 
+     bottom: 0; 
+     width: 3px; 
+   } 
+  
+   .block.cat-morning .block-content::before { background: var(--accent-orange); } 
+   .block.cat-trading .block-content::before { background: var(--accent-gold); } 
+   .block.cat-cert .block-content::before { background: var(--accent-purple); } 
+   .block.cat-cyber .block-content::before { background: var(--accent-cyber); } 
+   .block.cat-career .block-content::before { background: var(--accent-green); } 
+   .block.cat-dev .block-content::before { background: #ff6b9d; } 
+   .block.cat-fitness .block-content::before { background: var(--accent-red); } 
+   .block.cat-rest .block-content::before { background: var(--text-dim); } 
+   .block.cat-review .block-content::before { background: var(--accent-gold); } 
+   .block.cat-build .block-content::before { background: var(--accent-cyber); } 
+  
+   .block-icon { font-size: 18px; flex-shrink: 0; } 
+  
+   .block-text { flex: 1; } 
+  
+   .block-label { 
+     font-size: 13px; 
+     font-weight: 500; 
+     color: var(--text); 
+     margin-bottom: 2px; 
+   } 
+  
+   .block-detail { 
+     font-size: 11px; 
+     color: var(--text-dim); 
+     font-family: 'DM Mono', monospace; 
+     line-height: 1.5; 
+   } 
+  
+   .block-badge { 
+     font-family: 'DM Mono', monospace; 
+     font-size: 9px; 
+     letter-spacing: 1px; 
+     text-transform: uppercase; 
+     padding: 3px 8px; 
+     border-radius: 2px; 
+     flex-shrink: 0; 
+   } 
+  
+   .badge-new { 
+     background: rgba(57,255,106,0.15); 
+     color: var(--accent-green); 
+     border: 1px solid rgba(57,255,106,0.3); 
+   } 
+  
+   .badge-improved { 
+     background: rgba(0,229,255,0.1); 
+     color: var(--accent-cyber); 
+     border: 1px solid rgba(0,229,255,0.25); 
+   } 
+  
+   /* LEGEND */ 
+   .legend { 
+     display: flex; 
+     flex-wrap: wrap; 
+     gap: 12px; 
+     margin-top: 32px; 
+     padding-top: 24px; 
+     border-top: 1px solid var(--border); 
+   } 
+  
+   .legend-item { 
+     display: flex; 
+     align-items: center; 
+     gap: 6px; 
+     font-family: 'DM Mono', monospace; 
+     font-size: 10px; 
+     color: var(--text-dim); 
+     letter-spacing: 1px; 
+     text-transform: uppercase; 
+   } 
+  
+   .legend-dot { 
+     width: 8px; 
+     height: 8px; 
+     border-radius: 50%; 
+     flex-shrink: 0; 
+   } 
+  
+   /* MISSION BLOCK */ 
+   .mission { 
+     margin-top: 40px; 
+     padding: 24px; 
+     background: var(--surface); 
+     border: 1px solid var(--border); 
+     border-top: 3px solid var(--accent-gold); 
+     border-radius: 2px; 
+   } 
+  
+   .mission-label { 
+     font-family: 'DM Mono', monospace; 
+     font-size: 10px; 
+     color: var(--accent-gold); 
+     letter-spacing: 3px; 
+     text-transform: uppercase; 
+     margin-bottom: 10px; 
+   } 
+  
+   .mission-text { 
+     font-size: 15px; 
+     color: var(--text-mid); 
+     line-height: 1.7; 
+     font-style: italic; 
+   } 
+  
+   /* OVERVIEW ALL DAYS */ 
+   .week-overview { display: none; } 
+   .week-overview.active { display: block; } 
+  
+   .week-grid { 
+     display: grid; 
+     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); 
+     gap: 16px; 
+   } 
+  
+   .week-card { 
+     background: var(--surface); 
+     border: 1px solid var(--border); 
+     border-radius: 4px; 
+     padding: 20px; 
+     cursor: pointer; 
+     transition: all 0.2s ease; 
+     position: relative; 
+     overflow: hidden; 
+   } 
+  
+   .week-card::after { 
+     content: ''; 
+     position: absolute; 
+     bottom: 0; 
+     left: 0; 
+     right: 0; 
+     height: 2px; 
+   } 
+   .week-card:nth-child(1)::after { background: var(--accent-cyber); } 
+   .week-card:nth-child(2)::after { background: var(--accent-purple); } 
+   .week-card:nth-child(3)::after { background: #ff6b9d; } 
+   .week-card:nth-child(4)::after { background: var(--accent-orange); } 
+   .week-card:nth-child(5)::after { background: var(--accent-green); } 
+   .week-card:nth-child(6)::after { background: var(--accent-gold); } 
+   .week-card:nth-child(7)::after { background: var(--text-dim); } 
+  
+   .week-card:hover { 
+     border-color: var(--accent-gold); 
+     transform: translateY(-2px); 
+   } 
+  
+   .week-card-day { 
+     font-family: 'Bebas Neue', sans-serif; 
+     font-size: 28px; 
+     letter-spacing: 2px; 
+     margin-bottom: 4px; 
+   } 
+  
+   .week-card-theme { 
+     font-family: 'DM Mono', monospace; 
+     font-size: 10px; 
+     color: var(--text-dim); 
+     letter-spacing: 2px; 
+     text-transform: uppercase; 
+     margin-bottom: 16px; 
+   } 
+  
+   .week-card-pills { 
+     display: flex; 
+     flex-wrap: wrap; 
+     gap: 6px; 
+   } 
+  
+   .pill { 
+     font-family: 'DM Mono', monospace; 
+     font-size: 9px; 
+     letter-spacing: 1px; 
+     padding: 3px 8px; 
+     border-radius: 2px; 
+     text-transform: uppercase; 
+     background: var(--surface2); 
+     border: 1px solid var(--border); 
+     color: var(--text-dim); 
+   } 
+  
+   /* RESPONSIVE */ 
+   @media (max-width: 600px) { 
+     .block { grid-template-columns: 90px 1fr; } 
+     .block-time { font-size: 9px; padding: 10px 8px; } 
+     .block-content { padding: 10px 12px; } 
+     .block-label { font-size: 12px; } 
+   } 
+ </style> 
+ </head> 
+ <body> 
+ <div class="container"> 
+  
+   <header> 
+     <div class="header-top"> 
+       <div class="title-block"> 
+         <h1>TEBOGO'S<br>ELITE PLAN</h1> 
+         <div class="subtitle">Cyber · Trading · Dev · Growth — 2025 Edition</div> 
+       </div> 
+     </div> 
+     <div class="stats-row"> 
+       <div class="stat"> 
+         <span class="stat-value">~10H</span> 
+         <span class="stat-label">Daily Focus</span> 
+       </div> 
+       <div class="stat"> 
+         <span class="stat-value">5</span> 
+         <span class="stat-label">Skill Tracks</span> 
+       </div> 
+       <div class="stat"> 
+         <span class="stat-value">7</span> 
+         <span class="stat-label">Days/Week</span> 
+       </div> 
+       <div class="stat"> 
+         <span class="stat-value">12M</span> 
+         <span class="stat-label">To Transform</span> 
+       </div> 
+     </div> 
+   </header> 
+  
+   <!-- TRANSITION RULE BANNER --> 
+   <div style="background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.15);border-left:3px solid var(--accent-cyber);border-radius:3px;padding:16px 20px;margin-bottom:28px;display:flex;gap:16px;align-items:flex-start;"> 
+     <div style="font-size:22px;flex-shrink:0;">⚡</div> 
+     <div> 
+       <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--accent-cyber);letter-spacing:3px;text-transform:uppercase;margin-bottom:6px;">// The 5-Minute Transition Rule</div> 
+       <div style="font-size:13px;color:var(--text-mid);line-height:1.7;">Between every block: <strong style="color:var(--text)">stop → write 1 sentence</strong> summarizing what you just learned → drink water → breathe → start the next block. Not on the schedule — built into your discipline. The <strong style="color:var(--text)">08:00–11:00 IT block</strong> has a formal 10-min break at 09:30 every day — 3 hours straight kills retention.</div> 
+     </div> 
+   </div> 
+  
+   <!-- TABS --> 
+   <div class="day-tabs"> 
+     <div class="tab active" data-day="overview" onclick="showDay('overview')">Overview</div> 
+     <div class="tab" data-day="mon" onclick="showDay('mon')">Mon</div> 
+     <div class="tab" data-day="tue" onclick="showDay('tue')">Tue</div> 
+     <div class="tab" data-day="wed" onclick="showDay('wed')">Wed</div> 
+     <div class="tab" data-day="thu" onclick="showDay('thu')">Thu</div> 
+     <div class="tab" data-day="fri" onclick="showDay('fri')">Fri</div> 
+     <div class="tab" data-day="sat" onclick="showDay('sat')">Sat</div> 
+     <div class="tab" data-day="sun" onclick="showDay('sun')">Sun</div> 
+   </div> 
+  
+   <!-- OVERVIEW --> 
+   <div id="view-overview" class="week-overview active"> 
+     <div class="week-grid"> 
+       <div class="week-card" onclick="showDay('mon')"> 
+         <div class="week-card-day">Monday</div> 
+         <div class="week-card-theme">Networking & Market Structure</div> 
+         <div class="week-card-pills"> 
+           <span class="pill">Trading</span> 
+           <span class="pill">IT Cert</span> 
+           <span class="pill">Networking</span> 
+           <span class="pill">Job Hunt</span> 
+           <span class="pill">HTML/CSS</span> 
+         </div> 
+       </div> 
+       <div class="week-card" onclick="showDay('tue')"> 
+         <div class="week-card-day">Tuesday</div> 
+         <div class="week-card-theme">Linux & Trading Psychology</div> 
+         <div class="week-card-pills"> 
+           <span class="pill">Psychology</span> 
+           <span class="pill">IT Cert</span> 
+           <span class="pill">Linux</span> 
+           <span class="pill">JavaScript</span> 
+           <span class="pill">Backtesting</span> 
+         </div> 
+       </div> 
+       <div class="week-card" onclick="showDay('wed')"> 
+         <div class="week-card-day">Wednesday</div> 
+         <div class="week-card-theme">Web Security & React</div> 
+         <div class="week-card-pills"> 
+           <span class="pill">Trading</span> 
+           <span class="pill">IT Cert</span> 
+           <span class="pill">Web Sec</span> 
+           <span class="pill">React</span> 
+           <span class="pill">Review</span> 
+         </div> 
+       </div> 
+       <div class="week-card" onclick="showDay('thu')"> 
+         <div class="week-card-day">Thursday</div> 
+         <div class="week-card-theme">Ethical Hacking & Backend</div> 
+         <div class="week-card-pills"> 
+           <span class="pill">News Trading</span> 
+           <span class="pill">IT Cert</span> 
+           <span class="pill">Hacking</span> 
+           <span class="pill">Node.js</span> 
+           <span class="pill">Interview</span> 
+         </div> 
+       </div> 
+       <div class="week-card" onclick="showDay('fri')"> 
+         <div class="week-card-day">Friday</div> 
+         <div class="week-card-theme">Python, Automation & Labs</div> 
+         <div class="week-card-pills"> 
+           <span class="pill">Market Recap</span> 
+           <span class="pill">IT Cert</span> 
+           <span class="pill">Python</span> 
+           <span class="pill">TryHackMe</span> 
+           <span class="pill">Reflection</span> 
+         </div> 
+       </div> 
+       <div class="week-card" onclick="showDay('sat')"> 
+         <div class="week-card-day">Saturday</div> 
+         <div class="week-card-theme">Build & Execute</div> 
+         <div class="week-card-pills"> 
+           <span class="pill">Projects</span> 
+           <span class="pill">Trading</span> 
+           <span class="pill">Freelance</span> 
+           <span class="pill">Content</span> 
+           <span class="pill">Social</span> 
+         </div> 
+       </div> 
+       <div class="week-card" onclick="showDay('sun')"> 
+         <div class="week-card-day">Sunday</div> 
+         <div class="week-card-theme">Recovery & Deep Review</div> 
+         <div class="week-card-pills"> 
+           <span class="pill">Review</span> 
+           <span class="pill">Weak Spots</span> 
+           <span class="pill">Planning</span> 
+           <span class="pill">Rest</span> 
+         </div> 
+       </div> 
+     </div> 
+   </div> 
+  
+   <!-- MONDAY --> 
+   <div id="view-mon" class="day-view"> 
+     <div class="day-header"> 
+       <div class="day-name" style="color: var(--accent-cyber)">MONDAY</div> 
+       <div class="day-theme">Networking & Market Structure</div> 
+     </div> 
+     <div class="timeline"> 
+       <div class="block cat-morning"> 
+         <div class="block-time">05:30 – 06:00</div> 
+         <div class="block-content"><div class="block-icon">🌅</div><div class="block-text"><div class="block-label">Morning Activation</div><div class="block-detail">Wake, hydrate, cold shower, stretch, workout</div></div></div> 
+       </div> 
+       <div class="block cat-morning"> 
+         <div class="block-time">06:00 – 06:10</div> 
+         <div class="block-content"><div class="block-icon">🎯</div><div class="block-text"><div class="block-label">Daily Intention</div><div class="block-detail">Write 1 goal per skill track.</div></div><span class="block-badge badge-new">New</span></div> 
+       </div> 
+       <div class="block cat-trading"> 
+         <div class="block-time">06:10 – 07:00</div> 
+         <div class="block-content"><div class="block-icon">📊</div><div class="block-text"><div class="block-label">Trading: Market Structure</div><div class="block-detail">Support/resistance, liquidity zones - Gold & BTC</div></div></div> 
+       </div> 
+       <div class="block cat-cert"> 
+         <div class="block-time">08:00 – 11:00</div> 
+         <div class="block-content"><div class="block-icon">🖥️</div><div class="block-text"><div class="block-label">Higher Cert IT</div><div class="block-detail">Hardware, software, OS fundamentals. (10m break at 09:30)</div></div></div> 
+       </div> 
+       <div class="block cat-cyber"> 
+         <div class="block-time">11:00 – 12:30</div> 
+         <div class="block-content"><div class="block-icon">🌐</div><div class="block-text"><div class="block-label">Cyber Networking</div><div class="block-detail">IP, subnetting, DNS, DHCP, TCP vs UDP</div></div></div> 
+       </div> 
+       <div class="block cat-dev"> 
+         <div class="block-time">13:30 – 15:00</div> 
+         <div class="block-content"><div class="block-icon">💻</div><div class="block-text"><div class="block-label">Web Dev: HTML/CSS</div><div class="block-detail">Responsive layouts, portfolio building</div></div></div> 
+       </div> 
+       <div class="block cat-career"> 
+         <div class="block-time">15:00 – 16:00</div> 
+         <div class="block-content"><div class="block-icon">💼</div><div class="block-text"><div class="block-label">Job Hunt / CV</div><div class="block-detail">Optimize LinkedIn, apply for entry-level roles</div></div></div> 
+       </div> 
+       <div class="block cat-fitness"> 
+         <div class="block-time">17:30 – 18:30</div> 
+         <div class="block-content"><div class="block-icon">💪</div><div class="block-text"><div class="block-label">Fitness Session</div><div class="block-detail">Calisthenics or cardio focus</div></div></div> 
+       </div> 
+     </div> 
+   </div>
+
+   <!-- TUESDAY --> 
+   <div id="view-tue" class="day-view"> 
+     <div class="day-header"> 
+       <div class="day-name" style="color: var(--accent-purple)">TUESDAY</div> 
+       <div class="day-theme">Linux & Trading Psychology</div> 
+     </div> 
+     <div class="timeline"> 
+       <div class="block cat-morning"> 
+         <div class="block-time">05:30 – 06:10</div> 
+         <div class="block-content"><div class="block-icon">🌅</div><div class="block-text"><div class="block-label">Morning Routine</div><div class="block-detail">Activation & Intention Setting</div></div></div> 
+       </div> 
+       <div class="block cat-trading"> 
+         <div class="block-time">06:10 – 07:00</div> 
+         <div class="block-content"><div class="block-icon">🧠</div><div class="block-text"><div class="block-label">Trading Psychology</div><div class="block-detail">Journaling, risk management, mindset drills</div></div></div> 
+       </div> 
+       <div class="block cat-cert"> 
+         <div class="block-time">08:00 – 11:00</div> 
+         <div class="block-content"><div class="block-icon">🖥️</div><div class="block-text"><div class="block-label">Higher Cert IT</div><div class="block-detail">OS installation, troubleshooting, virtualization</div></div></div> 
+       </div> 
+       <div class="block cat-cyber"> 
+         <div class="block-time">11:00 – 12:30</div> 
+         <div class="block-content"><div class="block-icon">🐧</div><div class="block-text"><div class="block-label">Linux Fundamentals</div><div class="block-detail">CLI, file systems, permissions, shell scripting</div></div></div> 
+       </div> 
+       <div class="block cat-dev"> 
+         <div class="block-time">13:30 – 15:00</div> 
+         <div class="block-content"><div class="block-icon">📜</div><div class="block-text"><div class="block-label">JavaScript Basics</div><div class="block-detail">Variables, functions, DOM manipulation</div></div></div> 
+       </div> 
+       <div class="block cat-trading"> 
+         <div class="block-time">15:00 – 16:30</div> 
+         <div class="block-content"><div class="block-icon">📉</div><div class="block-text"><div class="block-label">Backtesting Session</div><div class="block-detail">Run strategy through historical data</div></div></div> 
+       </div> 
+     </div> 
+   </div>
+
+   <!-- WEDNESDAY --> 
+   <div id="view-wed" class="day-view"> 
+     <div class="day-header"> 
+       <div class="day-name" style="color: #ff6b9d">WEDNESDAY</div> 
+       <div class="day-theme">Web Security & React</div> 
+     </div> 
+     <div class="timeline"> 
+       <div class="block cat-morning"> 
+         <div class="block-time">05:30 – 06:10</div> 
+         <div class="block-content"><div class="block-icon">🌅</div><div class="block-text"><div class="block-label">Morning Routine</div><div class="block-detail">Activation & Intention</div></div></div> 
+       </div> 
+       <div class="block cat-trading"> 
+         <div class="block-time">06:10 – 07:00</div> 
+         <div class="block-content"><div class="block-icon">📊</div><div class="block-text"><div class="block-label">Trading: Mid-Week Review</div><div class="block-detail">Adjust bias based on weekly open</div></div></div> 
+       </div> 
+       <div class="block cat-cert"> 
+         <div class="block-time">08:00 – 11:00</div> 
+         <div class="block-content"><div class="block-icon">🖥️</div><div class="block-text"><div class="block-label">Higher Cert IT</div><div class="block-detail">Networking devices, cabling, protocols</div></div></div> 
+       </div> 
+       <div class="block cat-cyber"> 
+         <div class="block-time">11:00 – 12:30</div> 
+         <div class="block-content"><div class="block-icon">🛡️</div><div class="block-text"><div class="block-label">Web Security</div><div class="block-detail">OWASP Top 10, XSS, SQLi basics</div></div></div> 
+       </div> 
+       <div class="block cat-dev"> 
+         <div class="block-time">13:30 – 15:00</div> 
+         <div class="block-content"><div class="block-icon">⚛️</div><div class="block-text"><div class="block-label">React Fundamentals</div><div class="block-detail">Components, props, state, hooks</div></div></div> 
+       </div> 
+       <div class="block cat-review"> 
+         <div class="block-time">15:00 – 16:00</div> 
+         <div class="block-content"><div class="block-icon">🔄</div><div class="block-text"><div class="block-label">Mid-Week Review</div><div class="block-detail">Check progress on goals</div></div></div> 
+       </div> 
+     </div> 
+   </div>
+
+   <!-- THURSDAY --> 
+   <div id="view-thu" class="day-view"> 
+     <div class="day-header"> 
+       <div class="day-name" style="color: var(--accent-orange)">THURSDAY</div> 
+       <div class="day-theme">Ethical Hacking & Backend</div> 
+     </div> 
+     <div class="timeline"> 
+       <div class="block cat-morning"> 
+         <div class="block-time">05:30 – 06:10</div> 
+         <div class="block-content"><div class="block-icon">🌅</div><div class="block-text"><div class="block-label">Morning Routine</div><div class="block-detail">Activation & Intention</div></div></div> 
+       </div> 
+       <div class="block cat-trading"> 
+         <div class="block-time">06:10 – 07:00</div> 
+         <div class="block-content"><div class="block-icon">📰</div><div class="block-text"><div class="block-label">News Trading Prep</div><div class="block-detail">CPI/FOMC impact analysis</div></div></div> 
+       </div> 
+       <div class="block cat-cert"> 
+         <div class="block-time">08:00 – 11:00</div> 
+         <div class="block-content"><div class="block-icon">🖥️</div><div class="block-text"><div class="block-label">Higher Cert IT</div><div class="block-detail">Security concepts, encryption, MFA</div></div></div> 
+       </div> 
+       <div class="block cat-cyber"> 
+         <div class="block-time">11:00 – 12:30</div> 
+         <div class="block-content"><div class="block-icon">🔓</div><div class="block-text"><div class="block-label">Ethical Hacking</div><div class="block-detail">Nmap, Metasploit, reconnaissance</div></div></div> 
+       </div> 
+       <div class="block cat-dev"> 
+         <div class="block-time">13:30 – 15:00</div> 
+         <div class="block-content"><div class="block-icon">🟢</div><div class="block-text"><div class="block-label">Node.js / Express</div><div class="block-detail">Server setup, REST APIs</div></div></div> 
+       </div> 
+       <div class="block cat-career"> 
+         <div class="block-time">15:00 – 16:00</div> 
+         <div class="block-content"><div class="block-icon">🎤</div><div class="block-text"><div class="block-label">Interview Prep</div><div class="block-detail">Behavioral questions, tech drills</div></div></div> 
+       </div> 
+     </div> 
+   </div>
+
+   <!-- FRIDAY --> 
+   <div id="view-fri" class="day-view"> 
+     <div class="day-header"> 
+       <div class="day-name" style="color: var(--accent-green)">FRIDAY</div> 
+       <div class="day-theme">Python, Automation & Labs</div> 
+     </div> 
+     <div class="timeline"> 
+       <div class="block cat-morning"> 
+         <div class="block-time">05:30 – 06:10</div> 
+         <div class="block-content"><div class="block-icon">🌅</div><div class="block-text"><div class="block-label">Morning Routine</div><div class="block-detail">Activation & Intention</div></div></div> 
+       </div> 
+       <div class="block cat-trading"> 
+         <div class="block-time">06:10 – 07:00</div> 
+         <div class="block-content"><div class="block-icon">📊</div><div class="block-text"><div class="block-label">Weekly Market Recap</div><div class="block-detail">Finalize trades, record results</div></div></div> 
+       </div> 
+       <div class="block cat-cert"> 
+         <div class="block-time">08:00 – 11:00</div> 
+         <div class="block-content"><div class="block-icon">🖥️</div><div class="block-text"><div class="block-label">Higher Cert IT</div><div class="block-detail">Cloud computing, operational procedures</div></div></div> 
+       </div> 
+       <div class="block cat-cyber"> 
+         <div class="block-time">11:00 – 12:30</div> 
+         <div class="block-content"><div class="block-icon">🐍</div><div class="block-text"><div class="block-label">Python for Automation</div><div class="block-detail">Scripts for repetitive tasks</div></div></div> 
+       </div> 
+       <div class="block cat-cyber"> 
+         <div class="block-time">13:30 – 15:30</div> 
+         <div class="block-content"><div class="block-icon">🚩</div><div class="block-text"><div class="block-label">TryHackMe / HTB Labs</div><div class="block-detail">Practical hacking challenges</div></div></div> 
+       </div> 
+       <div class="block cat-rest"> 
+         <div class="block-time">15:30 – 16:30</div> 
+         <div class="block-content"><div class="block-icon">📓</div><div class="block-text"><div class="block-label">Weekly Reflection</div><div class="block-detail">What went well? What needs fixing?</div></div></div> 
+       </div> 
+     </div> 
+   </div>
+
+   <!-- SATURDAY --> 
+   <div id="view-sat" class="day-view"> 
+     <div class="day-header"> 
+       <div class="day-name" style="color: var(--accent-gold)">SATURDAY</div> 
+       <div class="day-theme">Build & Execute</div> 
+     </div> 
+     <div class="timeline"> 
+       <div class="block cat-build"> 
+         <div class="block-time">08:00 – 12:00</div> 
+         <div class="block-content"><div class="block-icon">🚀</div><div class="block-text"><div class="block-label">Main Project Build</div><div class="block-detail">Deep work on primary portfolio project</div></div></div> 
+       </div> 
+       <div class="block cat-trading"> 
+         <div class="block-time">13:00 – 15:00</div> 
+         <div class="block-content"><div class="block-icon">📈</div><div class="block-text"><div class="block-label">Freelance / Side Hustle</div><div class="block-detail">Client work or platform optimization</div></div></div> 
+       </div> 
+       <div class="block cat-dev"> 
+         <div class="block-time">15:00 – 17:00</div> 
+         <div class="block-content"><div class="block-icon">✍️</div><div class="block-text"><div class="block-label">Content Creation</div><div class="block-detail">LinkedIn post, blog, or documentation</div></div></div> 
+       </div> 
+       <div class="block cat-rest"> 
+         <div class="block-time">18:00 – 21:00</div> 
+         <div class="block-content"><div class="block-icon">🥂</div><div class="block-text"><div class="block-label">Social / Relaxation</div><div class="block-detail">Connect with people, unwind</div></div></div> 
+       </div> 
+     </div> 
+   </div>
+
+   <!-- SUNDAY --> 
+   <div id="view-sun" class="day-view"> 
+     <div class="day-header"> 
+       <div class="day-name" style="color: var(--text-dim)">SUNDAY</div> 
+       <div class="day-theme">Recovery & Deep Review</div> 
+     </div> 
+     <div class="timeline"> 
+       <div class="block cat-rest"> 
+         <div class="block-time">09:00 – 11:00</div> 
+         <div class="block-content"><div class="block-icon">💤</div><div class="block-text"><div class="block-label">Active Recovery</div><div class="block-detail">Sleep in, light walk, meditation</div></div></div> 
+       </div> 
+       <div class="block cat-review"> 
+         <div class="block-time">11:00 – 13:00</div> 
+         <div class="block-content"><div class="block-icon">🔍</div><div class="block-text"><div class="block-label">Deep Review: Weak Spots</div><div class="block-detail">Study the hardest topics from the week</div></div></div> 
+       </div> 
+       <div class="block cat-review"> 
+         <div class="block-time">14:00 – 15:30</div> 
+         <div class="block-content"><div class="block-icon">📅</div><div class="block-text"><div class="block-label">Weekly Planning</div><div class="block-detail">Set goals for next week, meal prep</div></div></div> 
+       </div> 
+       <div class="block cat-rest"> 
+         <div class="block-time">16:00 – 20:00</div> 
+         <div class="block-content"><div class="block-icon">🎮</div><div class="block-text"><div class="block-label">Full Recharge</div><div class="block-detail">Hobbies, family, total disconnect</div></div></div> 
+       </div> 
+     </div> 
+   </div>
+
+   <!-- LEGEND --> 
+   <div class="legend"> 
+     <div class="legend-item"><div class="legend-dot" style="background:var(--accent-orange)"></div>Morning</div> 
+     <div class="legend-item"><div class="legend-dot" style="background:var(--accent-gold)"></div>Trading</div> 
+     <div class="legend-item"><div class="legend-dot" style="background:var(--accent-purple)"></div>IT Cert</div> 
+     <div class="legend-item"><div class="legend-dot" style="background:var(--accent-cyber)"></div>Cyber</div> 
+     <div class="legend-item"><div class="legend-dot" style="background:var(--accent-green)"></div>Career</div> 
+     <div class="legend-item"><div class="legend-dot" style="background:#ff6b9d"></div>Dev</div> 
+     <div class="legend-item"><div class="legend-dot" style="background:var(--accent-red)"></div>Fitness</div> 
+     <div class="legend-item"><div class="legend-dot" style="background:var(--text-dim)"></div>Rest/Review</div> 
+   </div> 
+  
+   <div class="mission"> 
+     <div class="mission-label">// The 2025 Mission</div> 
+     <div class="mission-text">"Build the mind of a trader, the skills of a cyber expert, and the discipline of an athlete. 12 months of elite execution to transform everything."</div> 
+   </div> 
+  
+ </div> 
+
+ <script> 
+   function showDay(dayId) { 
+     // Update tabs 
+     document.querySelectorAll('.tab').forEach(tab => { 
+       tab.classList.remove('active'); 
+       if (tab.getAttribute('data-day') === dayId) { 
+         tab.classList.add('active'); 
+       } 
+     }); 
+  
+     // Update views 
+     document.querySelectorAll('.day-view, .week-overview').forEach(view => { 
+       view.classList.remove('active'); 
+     }); 
+  
+     const targetView = document.getElementById('view-' + dayId); 
+     if (targetView) { 
+       targetView.classList.add('active'); 
+       window.scrollTo({ top: 0, behavior: 'smooth' }); 
+     } 
+   } 
+ </script> 
+ </body> 
+ </html>
