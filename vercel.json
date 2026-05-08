@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "backend/src/main.ts"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/voice-app/$1"
+    }
+  ]
+}
