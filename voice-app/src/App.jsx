@@ -823,7 +823,8 @@ Intent: ${intent}`;
     setResponse("ARCHITECTING NEW SCHEDULE...");
     
     try {
-      const res = await fetch('http://localhost:3000/schedule/redesign', {
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      const res = await fetch(`${baseUrl}/schedule/redesign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ instructions })
@@ -867,12 +868,14 @@ Intent: ${intent}`;
 
     if (syncGithubQ) {
       speak("Syncing your GitHub profile and repositories. I'll notify you when complete.", startListeningRef.current);
-      fetch('http://localhost:3000/github/sync', { method: 'POST' }).catch(console.error);
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      fetch(`${baseUrl}/github/sync`, { method: 'POST' }).catch(console.error);
       return;
     }
 
     if (githubScoreQ) {
-      fetch('http://localhost:3000/github/summary')
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      fetch(`${baseUrl}/github/summary`)
         .then(res => res.json())
         .then(data => {
           speak(data.summary, startListeningRef.current);
@@ -895,7 +898,8 @@ Intent: ${intent}`;
       setView('jobs');
       speak("Understood. Initiating job search across LinkedIn, PNet, and Careers24. I'll update the board as I find matching roles.", startListeningRef.current);
       // Trigger backend scan
-      fetch('http://localhost:3000/jobs/scan', { method: 'POST' }).catch(console.error);
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      fetch(`${baseUrl}/jobs/scan`, { method: 'POST' }).catch(console.error);
       return;
     }
 
@@ -1062,7 +1066,10 @@ Intent: ${intent}`;
               OPTIMIZE DAY
             </button>
             <button 
-              onClick={() => fetch('http://localhost:3000/github/sync', { method: 'POST' })}
+              onClick={() => {
+                const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+                fetch(`${baseUrl}/github/sync`, { method: 'POST' });
+              }}
               style={{
                 background: 'transparent',
                 border: '1px solid var(--hud-cyan)',
@@ -1076,7 +1083,10 @@ Intent: ${intent}`;
               SYNC GITHUB
             </button>
             <button 
-              onClick={() => fetch('http://localhost:3000/jobs/scan', { method: 'POST' })}
+              onClick={() => {
+                const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+                fetch(`${baseUrl}/jobs/scan`, { method: 'POST' });
+              }}
               style={{
                 background: 'transparent',
                 border: '1px solid #39ff6a',
