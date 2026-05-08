@@ -77,8 +77,11 @@ const JobHunterPanel = () => {
       }
     } catch (error) {
       console.error('Upload failed', error);
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : 'the backend';
-      alert(`Network error: ${error.message}. Please ensure ${baseUrl} is reachable.`);
+      const isLocal = window.location.hostname === 'localhost';
+      const errorMessage = isLocal 
+        ? `Network error: ${error.message}. Is your backend running on port 3000?` 
+        : `Cloud Network Error: ${error.message}. The Jarvis backend is temporarily unreachable on Vercel.`;
+      alert(errorMessage);
     } finally {
       setIsUploading(false);
     }
