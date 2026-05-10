@@ -142,3 +142,62 @@ model ScheduleBlock {
 
   @@map("schedule_blocks")
 }
+
+model ConversationSession {
+  id         String            @id @default(uuid()) @db.Uuid
+  userId     String?           @db.Uuid
+  summary    String?
+  topicTags  String[]          @map("topic_tags")
+  createdAt  DateTime          @default(now()) @map("created_at")
+  snapshots  ContextSnapshot[]
+
+  @@map("conversation_sessions")
+}
+
+model ContextSnapshot {
+  id           String              @id @default(uuid()) @db.Uuid
+  sessionId    String              @map("session_id") @db.Uuid
+  messageIndex Int                 @map("message_index")
+  intentLabel  String?             @map("intent_label")
+  sentiment    String?
+  entities     Json?
+  timestamp    DateTime            @default(now())
+  session      ConversationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("context_snapshots")
+}
+
+model UserMemory {
+  id                 String   @id @default(uuid()) @db.Uuid
+  userId             String?  @unique @db.Uuid
+  preferredTone      String?  @map("preferred_tone")
+  responseLength     String?  @map("response_length")
+  topicWeights       Json?    @map("topic_weights")
+  personalityProfile Json?    @map("personality_profile")
+  lastUpdated        DateTime @default(now()) @map("last_updated")
+
+  @@map("user_memories")
+}
+
+model UserCorrection {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String?  @db.Uuid
+  originalResponse  String   @map("original_response")
+  correctedResponse String   @map("corrected_response")
+  topic             String?
+  timestamp         DateTime @default(now())
+
+  @@map("user_corrections")
+}
+
+model JarvisFeedback {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String?  @db.Uuid
+  messageId String?  @map("message_id")
+  rating    String
+  comment   String?
+  topic     String?
+  timestamp DateTime @default(now())
+
+  @@map("jarvis_feedback")
+}

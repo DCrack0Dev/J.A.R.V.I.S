@@ -1,7 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import JobHunterPanel from './components/JobHunterPanel';
 import GitHubPanel from './components/GitHubPanel';
+import ContextBar from './components/ContextBar';
+import FeedbackBar from './components/FeedbackBar';
+import LearningDashboard from './components/LearningDashboard';
 
+const SESSION_ID = crypto.randomUUID(); // Unique for this session
 const SCHEDULE = {
   mon: {
     theme: "Networking & Market Structure",
@@ -513,6 +517,8 @@ export default function App() {
   const [started, setStarted] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [response, setResponse] = useState("");
+  const [currentWordIndex, setCurrentWordIndex] = useState(-1);
+  const [context, setContext] = useState(null);
   const [history, setHistory] = useState([]);
   const [tick, setTick] = useState(0);
   const [view, setView] = useState(getNow().day); 
@@ -621,9 +627,20 @@ export default function App() {
     
     setOrbState("speaking");
     setResponse(text);
+    setCurrentWordIndex(-1);
 
     const u = new window.SpeechSynthesisUtterance(text);
     u.rate = 1.05; u.pitch = 1.0; u.volume = 1.0;
+    
+    u.onboundary = (event) => {
+      if (event.name === 'word') {
+        // Estimate word index based on character offset
+        const spokenPart = text.substring(0, event.charIndex);
+        const words = spokenPart.trim().split(/\s+/);
+        setCurrentWordIndex(spokenPart.trim() === "" ? 0 : words.length);
+      }
+    };
+
     u.onstart = () => {
       speakingRef.current = true;
       if (recognitionRef.current) {
@@ -662,64 +679,27 @@ export default function App() {
   }, []);
 
   const askModel = useCallback(async (said, intent = "general") => {
-    if (!MODEL_API_KEY) return null;
-
-    const n = getNow();
-    const liveToday = (schedule && schedule[n.day] && schedule[n.day].blocks?.length > 0) 
-      ? schedule[n.day] 
-      : SCHEDULE[n.day];
-    const liveBlocks = liveToday.blocks;
-    const liveCurrent = liveBlocks.find((b) => n.totalMinutes >= toMin(b.start) && n.totalMinutes < toMin(b.end)) || null;
-    const liveNext = liveBlocks.find((b) => toMin(b.start) > n.totalMinutes) || null;
-    const liveRemaining = liveCurrent ? toMin(liveCurrent.end) - n.totalMinutes : 0;
-    const compactDayPlan = liveBlocks.map((b) => `${b.start}-${b.end} ${b.label}`).join(" | ");
-
-    const systemPrompt = `You are Tebogo's elite personal AI assistant. You are more than a coach; you are his partner in his journey to master Cybersecurity, Trading, and Dev.
-Capabilities:
-- Manage his schedule and offer strategic planning.
-- Answer any general knowledge, tech, or world questions.
-- Provide motivation, emotional support, and advice.
-- Remember the immediate conversation context.
-
-Rules:
-- Keep replies short (2-5 sentences), practical, and human. No markdown.
-- Sound like a mentor who is also a high-level engineer.
-- If he asks for a plan, use the schedule context below.
-- If he asks about anything else, answer intelligently using your full knowledge base.
-
-Context:
-Today: ${n.dayName} | Theme: ${liveToday.theme}
-Current: ${liveCurrent ? `${liveCurrent.label} (${liveRemaining} min left)` : "between blocks"}
-Next: ${liveNext ? `${liveNext.label} at ${liveNext.start}` : "none"}
-Full Day: ${compactDayPlan}
-Intent: ${intent}`;
-
     try {
-      // Build message history (last 4 exchanges for context)
-      const messages = [
-        { role: "system", content: systemPrompt },
-        ...history.slice(-4),
-        { role: "user", content: said }
-      ];
-
-      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      const res = await fetch(`${baseUrl}/api/jarvis/query/${SESSION_ID}`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${MODEL_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: MODEL_NAME,
-          temperature: 0.7,
-          max_tokens: 300,
-          messages: messages,
+          query: said,
+          userId: '00000000-0000-0000-0000-000000000001' // Default for now
         }),
       });
 
       if (!res.ok) return null;
       const data = await res.json();
-      const reply = data?.choices?.[0]?.message?.content?.trim() || null;
+      const reply = data.reply;
       
+      if (data.analysis) {
+        setContext(data.analysis);
+      }
+
       if (reply) {
         setHistory(prev => [...prev, { role: "user", content: said }, { role: "assistant", content: reply }]);
       }
@@ -775,6 +755,19 @@ Intent: ${intent}`;
       
       listeningRef.current = false;
       if (handleSpeechRef.current) handleSpeechRef.current(said);
+
+      // Send to context engine for analysis
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      fetch(`${baseUrl}/api/context/session/${SESSION_ID}/message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: 'user', content: said })
+      })
+      .then(res => res.json())
+      .then(analysis => {
+        if (analysis) setContext(analysis);
+      })
+      .catch(console.error);
     };
 
     rec.onerror = (event) => {
@@ -1024,6 +1017,7 @@ Intent: ${intent}`;
 
         {/* CLOCK */}
         <div className="hud-clock-wrap">
+          <ContextBar context={context} />
           <div className="hud-clock">{pad(now.h)}:{pad(now.m)}:{pad(now.s)}</div>
           <div style={{ fontSize: '10px', letterSpacing: '4px', marginTop: '10px' }}>
             {now.dayName.toUpperCase()} // {todayData.theme.toUpperCase()}
@@ -1108,10 +1102,27 @@ Intent: ${intent}`;
             <div className="hud-panel-label">[COMMS LINK]</div>
             {transcript && <div style={{ opacity: 0.5, fontSize: '10px', marginBottom: '5px' }}>USER: {transcript.toUpperCase()}</div>}
             {response && (
-              <div style={{ color: orbState === "thinking" ? "#9b6dff" : 'var(--hud-orange)', fontWeight: orbState === "thinking" ? 'bold' : 'normal' }}>
-                JARVIS: {response.toUpperCase()}
-              </div>
-            )}
+              <div style={{ 
+                color: orbState === "thinking" ? "#9b6dff" : 'var(--hud-orange)', 
+                fontWeight: orbState === "thinking" ? 'bold' : 'normal',
+                lineHeight: '1.4'
+              }}>
+                JARVIS: {response.split(/\s+/).map((word, idx) => (
+                  <span 
+                    key={idx} 
+                    style={{ 
+                      backgroundColor: idx === currentWordIndex ? 'var(--hud-orange)' : 'transparent',
+                      color: idx === currentWordIndex ? 'var(--hud-bg)' : 'inherit',
+                      padding: '0 2px',
+                      transition: 'all 0.1s'
+                    }}
+                  >
+                     {word.toUpperCase()}{' '}
+                   </span>
+                 ))}
+                 <FeedbackBar messageId={Date.now().toString()} topic={context?.intentLabel} />
+               </div>
+             )}
             {!transcript && !response && <div style={{ opacity: 0.4 }}>AWAITING INPUT...</div>}
             
             {/* MANUAL RESTART BUTTON */}
@@ -1157,6 +1168,12 @@ Intent: ${intent}`;
           >
             GITHUB
           </button>
+          <button 
+            className={`hud-tab ${view === 'learning' ? 'active' : ''}`}
+            onClick={() => setView('learning')}
+          >
+            LEARNING
+          </button>
         </div>
 
         {view === 'jobs' ? (
@@ -1171,6 +1188,13 @@ Intent: ${intent}`;
             <div className="hud-panel-label">[GITHUB INTELLIGENCE]</div>
             <div className="hud-scroll-content">
               <GitHubPanel />
+            </div>
+          </div>
+        ) : view === 'learning' ? (
+          <div className="hud-panel scrollable">
+            <div className="hud-panel-label">[PERSONALIZED LEARNING SYSTEM]</div>
+            <div className="hud-scroll-content">
+              <LearningDashboard />
             </div>
           </div>
         ) : (
