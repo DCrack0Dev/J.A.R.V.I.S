@@ -7,7 +7,15 @@ const LiveIntelligencePanel = () => {
     trading: null,
     news: null
   });
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(window.innerWidth < 1200);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1200) setCollapsed(true);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -55,8 +63,8 @@ const LiveIntelligencePanel = () => {
     <div style={{
       position: 'fixed',
       right: '10px',
-      top: '100px',
-      width: '250px',
+      top: '70px',
+      width: window.innerWidth < 480 ? 'calc(100% - 20px)' : '250px',
       background: 'rgba(0, 10, 20, 0.9)',
       border: '1px solid #00f2ff',
       color: '#00f2ff',
