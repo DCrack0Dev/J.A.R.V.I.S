@@ -1,0 +1,183 @@
+import { Injectable, Logger } from '@nestjs/common';
+import axios from 'axios';
+import { RedisService } from '../redis.service';
+import { PrismaService } from '../prisma.service';
+import { IntelligenceGateway } from './intelligence.gateway';
+
+@Injectable()
+export class RealTimeIntelligenceService {
+  private readonly logger = new Logger(RealTimeIntelligenceService.name);
+
+  constructor(
+    private redis: RedisService,
+    private prisma: PrismaService,
+    private gateway: IntelligenceGateway,
+  ) {}
+
+  // PROVIDER 1: CRYPTO
+  async getCryptoData() {
+    const redis = this.redis.getClient();
+    const cached = await redis.get('intelligence:crypto');
+    if (cached) return JSON.parse(cached);
+
+    try {
+      const res = await axios.get('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=usd&include_24hr_change=true');
+      const data = res.data;
+      await redis.set('intelligence:crypto', JSON.stringify(data), 'EX', 60);
+      return data;
+    } catch (e) {
+      this.logger.error(`Crypto provider failed: ${e.message}`);
+      return null;
+    }
+  }
+
+  // PROVIDER 2: CYBERSECURITY
+  async getCyberThreats() {
+    const redis = this.redis.getClient();
+    const cached = await redis.get('intelligence:cyber');
+    if (cached) return JSON.parse(cached);
+
+    try {
+      // Using CISA Known Exploited Vulnerabilities
+      const res = await axios.get('https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json');
+      const latest = res.data.vulnerabilities.slice(0, 5);
+      await redis.set('intelligence:cyber', JSON.stringify(latest), 'EX', 900);
+      return latest;
+    } catch (e) {
+      this.logger.error(`Cyber provider failed: ${e.message}`);
+      return null;
+    }
+  }
+
+  // PROVIDER 3: TRADING SIGNALS
+  async getTradingSignals() {
+    const redis = this.redis.getClient();
+    const cached = await redis.get('intelligence:trading');
+    if (cached) return JSON.parse(cached);
+
+    try {
+      // Using Binance for OHLCV data to calculate RSI
+      const res = await axios.get('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=4h&limit=20');
+      const closes = res.data.map(k => parseFloat(k[4]));
+      
+      const rsi = this.calculateRSI(closes);
+      
+      const data = {
+        symbol: 'BTCUSDT',
+        rsi: rsi.toFixed(2),
+        signal: rsi < 30 ? 'Oversold' : rsi > 70 ? 'Overbought' : 'Neutral',
+        lastPrice: closes[closes.length - 1],
+      };
+      
+      await redis.set('intelligence:trading', JSON.stringify(data), 'EX', 120);
+      return data;
+    } catch (e) {
+      this.logger.error(`Trading provider failed: ${e.message}`);
+      return null;
+    }
+  }
+
+  private calculateRSI(closes: number[]): number {
+    let gains = 0;
+    let losses = 0;
+    for (let i = 1; i < closes.length; i++) {
+      const diff = closes[i] - closes[i - 1];
+      if (diff >= 0) gains += diff;
+      else losses -= diff;
+    }
+    const avgGain = gains / (closes.length - 1);
+    const avgLoss = losses / (closes.length - 1);
+    if (avgLoss === 0) return 100;
+    const rs = avgGain / avgLoss;
+    return 100 - (100 / (1 + rs));
+  }
+
+  // PROVIDER 4: NEWS
+  async getLatestNews() {
+    const redis = this.redis.getClient();
+    const cached = await redis.get('intelligence:news');
+    if (cached) return JSON.parse(cached);
+
+    const apiKey = process.env.NEWS_API_KEY;
+    if (!apiKey) return null;
+
+    try {
+      const res = await axios.get(`https://newsapi.org/v2/top-headlines?category=technology&apiKey=${apiKey}&pageSize=5`);
+      const data = res.data.articles;
+      await redis.set('intelligence:news', JSON.stringify(data), 'EX', 600);
+      return data;
+    } catch (e) {
+      this.logger.error(`News provider failed: ${e.message}`);
+      return null;
+    }
+  }
+
+  async getIntelligenceBlock() {
+    const [crypto, cyber, trading, news] = await Promise.all([
+      this.getCryptoData(),
+      this.getCyberThreats(),
+      this.getTradingSignals(),
+      this.getLatestNews(),
+    ]);
+
+    const timestamp = new Date().toLocaleTimeString();
+    
+    let block = `[LIVE INTELLIGENCE — as of ${timestamp}]\n`;
+    if (crypto && crypto.bitcoin) {
+      block += `- BTC: $${crypto.bitcoin.usd} (${crypto.bitcoin.usd_24h_change?.toFixed(1)}% 24h)\n`;
+      block += `- ETH: $${crypto.ethereum.usd} (${crypto.ethereum.usd_24h_change?.toFixed(1)}% 24h)\n`;
+    }
+    if (cyber && cyber[0]) {
+      block += `- Top CVE: ${cyber[0].cveID} — ${cyber[0].vulnerabilityName}\n`;
+    }
+    if (trading) {
+      block += `- BTC RSI (4h): ${trading.rsi} — ${trading.signal} signal\n`;
+    }
+    if (news && news[0]) {
+      block += `- Top News: "${news[0].title}"\n`;
+    }
+
+    return block;
+  }
+
+  async checkProactiveAlerts(userId: string) {
+    const crypto = await this.getCryptoData();
+    if (crypto && crypto.bitcoin && Math.abs(crypto.bitcoin.usd_24h_change) > 5) {
+      await this.saveAndSendAlert(userId, {
+        provider: 'crypto',
+        message: `Bitcoin moved ${crypto.bitcoin.usd_24h_change.toFixed(1)}% in the last 24 hours!`,
+        severity: 'high',
+      });
+    }
+
+    const trading = await this.getTradingSignals();
+    if (trading && (parseFloat(trading.rsi) < 30 || parseFloat(trading.rsi) > 70)) {
+      await this.saveAndSendAlert(userId, {
+        provider: 'trading',
+        message: `BTC RSI is ${trading.rsi} (${trading.signal}!)`,
+        severity: 'high',
+      });
+    }
+
+    const cyber = await this.getCyberThreats();
+    if (cyber && cyber[0]) {
+      await this.saveAndSendAlert(userId, {
+        provider: 'cyber',
+        message: `New critical vulnerability: ${cyber[0].cveID}`,
+        severity: 'critical', 
+      });
+    }
+  }
+
+  private async saveAndSendAlert(userId: string, alert: any) {
+    const saved = await this.prisma.intelligenceAlert.create({
+      data: {
+        userId,
+        provider: alert.provider,
+        message: alert.message,
+        severity: alert.severity,
+      },
+    });
+    this.gateway.sendAlert(userId, saved);
+  }
+}

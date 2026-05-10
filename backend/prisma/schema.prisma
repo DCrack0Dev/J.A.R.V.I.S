@@ -1,9 +1,11 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
+  provider   = "postgresql"
+  extensions = [pgvector(map: "vector")]
 }
 
 model JobListing {
@@ -179,25 +181,139 @@ model UserMemory {
   @@map("user_memories")
 }
 
-model UserCorrection {
-  id                String   @id @default(uuid()) @db.Uuid
-  userId            String?  @db.Uuid
-  originalResponse  String   @map("original_response")
-  correctedResponse String   @map("corrected_response")
-  topic             String?
-  timestamp         DateTime @default(now())
+// --- NEW MODULE 1: PERMANENT MEMORY ENGINE ---
 
-  @@map("user_corrections")
-}
-
-model JarvisFeedback {
+model MemoryRecord {
   id        String   @id @default(uuid()) @db.Uuid
   userId    String?  @db.Uuid
-  messageId String?  @map("message_id")
-  rating    String
-  comment   String?
-  topic     String?
+  role      String   // user or assistant
+  content   String
+  sessionId String   @map("session_id")
   timestamp DateTime @default(now())
 
-  @@map("jarvis_feedback")
+  @@map("memory_records")
 }
+
+model MemoryIndex {
+  id              String                    @id @default(uuid()) @db.Uuid
+  userId          String?                   @db.Uuid
+  summary         String
+  tags            String[]
+  embedding       Unsupported("vector(1536)")?
+  sourceSessionId String?                   @map("source_session_id")
+  createdAt       DateTime                  @default(now()) @map("created_at")
+
+  @@map("memory_index")
+}
+
+model MemoryCorrection {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String?  @db.Uuid
+  originalFact  String   @map("original_fact")
+  correctedFact String   @map("corrected_fact")
+  timestamp     DateTime @default(now())
+
+  @@map("memory_corrections")
+}
+
+// --- NEW MODULE 2: ADAPTIVE LEARNING ---
+
+model ExplanationFeedback {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String?  @db.Uuid
+  messageId    String?  @map("message_id")
+  rating       String?  // positive, negative
+  feedbackType String?  @map("feedback_type") // too_long, too_short, need_examples, etc.
+  timestamp    DateTime @default(now())
+
+  @@map("explanation_feedback")
+}
+
+model DiagramCache {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String?  @db.Uuid
+  description String
+  mermaidCode String   @map("mermaid_code")
+  renderedAt  DateTime @default(now()) @map("rendered_at")
+
+  @@map("diagram_cache")
+}
+
+// --- NEW MODULE 3: REAL-TIME INTELLIGENCE ---
+
+model TrackedAsset {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String?  @db.Uuid
+  symbol         String   // e.g., BTC, ETH
+  alertThreshold Float?   @map("alert_threshold") // percentage move, e.g. 5.0
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@map("tracked_assets")
+}
+
+model IntelligenceAlert {
+  id          String   @id @default(uuid()) @db.Uuid
+  userId      String?  @db.Uuid
+  provider    String   // crypto, cyber, trading, news
+  message     String
+  severity    String   // low, medium, high, critical
+  triggeredAt DateTime @default(now()) @map("triggered_at")
+  acknowledged Boolean  @default(false)
+
+  @@map("intelligence_alerts")
+}
+
+model NewsCache {
+  id        String   @id @default(uuid()) @db.Uuid
+  topic     String
+  headline  String
+  url       String
+  source    String
+  fetchedAt DateTime @default(now()) @map("fetched_at")
+
+  @@map("news_cache")
+}
+
+// --- NEW MODULE 4: WAKE WORD & SESSION PERSISTENCE ---
+
+enum SessionStatus {
+  DORMANT
+  ACTIVE
+}
+
+model JarvisSession {
+  id            String        @id @default(uuid()) @db.Uuid
+  userId        String?       @db.Uuid
+  status        SessionStatus @default(DORMANT)
+  lastActiveAt  DateTime?     @map("last_active_at")
+  lastSleptAt   DateTime?     @map("last_slept_at")
+  totalSessions Int           @default(0) @map("total_sessions")
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  @@map("jarvis_sessions")
+}
+
+model UserAudioSettings {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @unique @db.Uuid
+  wakeWordEnabled  Boolean  @default(false) @map("wake_word_enabled")
+  panicMuteActive  Boolean  @default(false) @map("panic_mute_active")
+  consentGivenAt   DateTime? @map("consent_given_at")
+  updatedAt        DateTime @default(now()) @map("updated_at")
+
+  @@map("user_audio_settings")
+}
+
+model ToolCall {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String?  @db.Uuid
+  messageId      String?  @map("message_id")
+  toolName       String   @map("tool_name")
+  cacheHit       Boolean  @map("cache_hit")
+  responseTimeMs Int      @map("response_time_ms")
+  status         String   @default("SUCCESS") // SUCCESS, FAILED
+  timestamp      DateTime @default(now())
+
+  @@map("tool_calls")
+}
+

@@ -9,11 +9,20 @@ import { LearningModule } from './learning/learning.module';
 import { RealTimeModule } from './realtime/realtime.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { JarvisModule } from './jarvis/jarvis.module';
+import { MemoryModule } from './memory/memory.module';
+import { StyleModule } from './style/style.module';
+import { IntelligenceModule } from './intelligence/intelligence.module';
 import { ScheduleModule as NestScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
     NestScheduleModule.forRoot(),
+    BullModule.forRoot({
+      connection: {
+        host: process.env.REDIS_HOST || 'localhost',
+        port: parseInt(process.env.REDIS_PORT) || 6379,
+      },
+    }),
     JobsModule,
     GithubModule,
     ScheduleModule,
@@ -22,6 +31,9 @@ import { ScheduleModule as NestScheduleModule } from '@nestjs/schedule';
     RealTimeModule,
     FeedbackModule,
     JarvisModule,
+    MemoryModule,
+    StyleModule,
+    IntelligenceModule,
   ],
   controllers: [AppController],
   providers: [AppService],
