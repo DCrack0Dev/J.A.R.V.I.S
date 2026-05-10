@@ -544,18 +544,18 @@ export default function App() {
         const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
         
         // 1. Check if schedule exists in DB first
-        const checkRes = await fetch(`${baseUrl}/schedule`);
+        const checkRes = await fetch(`${baseUrl}/api/schedule`);
         const existingData = await checkRes.json();
         
         // 2. If DB is empty, seed it with hardcoded SCHEDULE
         if (!existingData || Object.keys(existingData).length === 0) {
           console.log("Database schedule empty. Seeding initial data...");
-          await fetch(`${baseUrl}/schedule/seed`, {
+          await fetch(`${baseUrl}/api/schedule/seed`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(SCHEDULE)
           });
-          const freshRes = await fetch(`${baseUrl}/schedule`);
+          const freshRes = await fetch(`${baseUrl}/api/schedule`);
           const freshData = await freshRes.json();
           setSchedule(freshData);
         } else {
@@ -824,7 +824,7 @@ Intent: ${intent}`;
     
     try {
       const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
-      const res = await fetch(`${baseUrl}/schedule/redesign`, {
+      const res = await fetch(`${baseUrl}/api/schedule/redesign`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ instructions })
@@ -869,13 +869,13 @@ Intent: ${intent}`;
     if (syncGithubQ) {
       speak("Syncing your GitHub profile and repositories. I'll notify you when complete.", startListeningRef.current);
       const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
-      fetch(`${baseUrl}/github/sync`, { method: 'POST' }).catch(console.error);
+      fetch(`${baseUrl}/api/github/sync`, { method: 'POST' }).catch(console.error);
       return;
     }
 
     if (githubScoreQ) {
       const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
-      fetch(`${baseUrl}/github/summary`)
+      fetch(`${baseUrl}/api/github/summary`)
         .then(res => res.json())
         .then(data => {
           speak(data.summary, startListeningRef.current);
@@ -899,7 +899,7 @@ Intent: ${intent}`;
       speak("Understood. Initiating job search across LinkedIn, PNet, and Careers24. I'll update the board as I find matching roles.", startListeningRef.current);
       // Trigger backend scan
       const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
-      fetch(`${baseUrl}/jobs/scan`, { method: 'POST' }).catch(console.error);
+      fetch(`${baseUrl}/api/jobs/scan`, { method: 'POST' }).catch(console.error);
       return;
     }
 
@@ -1068,7 +1068,7 @@ Intent: ${intent}`;
             <button 
               onClick={() => {
                 const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
-                fetch(`${baseUrl}/github/sync`, { method: 'POST' });
+                fetch(`${baseUrl}/api/github/sync`, { method: 'POST' });
               }}
               style={{
                 background: 'transparent',
@@ -1085,7 +1085,7 @@ Intent: ${intent}`;
             <button 
               onClick={() => {
                 const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
-                fetch(`${baseUrl}/jobs/scan`, { method: 'POST' });
+                fetch(`${baseUrl}/api/jobs/scan`, { method: 'POST' });
               }}
               style={{
                 background: 'transparent',

@@ -15,9 +15,10 @@ const GitHubPanel = () => {
 
   const fetchData = async () => {
     try {
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
       const [pRes, rRes] = await Promise.all([
-        fetch('http://localhost:3000/github/profile'),
-        fetch('http://localhost:3000/github/repos')
+        fetch(`${baseUrl}/api/github/profile`),
+        fetch(`${baseUrl}/api/github/repos`)
       ]);
       setProfile(await pRes.json());
       setRepos(await rRes.json());
@@ -31,7 +32,8 @@ const GitHubPanel = () => {
   const handleSync = async () => {
     setSyncing(true);
     try {
-      await fetch('http://localhost:3000/github/sync', { method: 'POST' });
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      await fetch(`${baseUrl}/api/github/sync`, { method: 'POST' });
       await fetchData();
     } finally {
       setSyncing(false);
@@ -42,7 +44,8 @@ const GitHubPanel = () => {
     setEditingRepo(repoFullName);
     setIsGenerating(true);
     try {
-      const res = await fetch('http://localhost:3000/github/readme/generate', {
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      const res = await fetch(`${baseUrl}/api/github/readme/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ repoFullName })
@@ -56,8 +59,9 @@ const GitHubPanel = () => {
 
   const handleScoreHealth = async (repoFullName) => {
     try {
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
       const [owner, repo] = repoFullName.split('/');
-      const res = await fetch(`http://localhost:3000/github/health/score/${owner}/${repo}`, {
+      const res = await fetch(`${baseUrl}/api/github/health/score/${owner}/${repo}`, {
         method: 'POST'
       });
       if (res.ok) {
@@ -70,8 +74,9 @@ const GitHubPanel = () => {
 
   const handleSyncRepo = async (repoFullName) => {
     try {
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
       const [owner, repo] = repoFullName.split('/');
-      const res = await fetch(`http://localhost:3000/github/sync/${owner}/${repo}`, {
+      const res = await fetch(`${baseUrl}/api/github/sync/${owner}/${repo}`, {
         method: 'POST'
       });
       if (res.ok) {
@@ -85,7 +90,8 @@ const GitHubPanel = () => {
   const handleApplyReadme = async () => {
     if (!editingRepo) return;
     try {
-      const res = await fetch('http://localhost:3000/github/readme/apply', {
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      const res = await fetch(`${baseUrl}/api/github/readme/apply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ repoFullName: editingRepo, content: draftReadme })

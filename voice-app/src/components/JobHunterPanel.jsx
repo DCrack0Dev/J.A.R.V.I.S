@@ -24,8 +24,8 @@ const JobHunterPanel = () => {
       const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
       
       const [jobsRes, profileRes] = await Promise.all([
-        fetch(`${baseUrl}/jobs`),
-        fetch(`${baseUrl}/jobs/profile`)
+        fetch(`${baseUrl}/api/jobs`),
+        fetch(`${baseUrl}/api/jobs/profile`)
       ]);
       
       const jobsData = await jobsRes.json();
@@ -60,7 +60,7 @@ const JobHunterPanel = () => {
 
     try {
       const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
-      const res = await fetch(`${baseUrl}/jobs/resume/upload`, {
+      const res = await fetch(`${baseUrl}/api/jobs/resume/upload`, {
         method: 'POST',
         body: formData,
       });
@@ -96,7 +96,7 @@ const JobHunterPanel = () => {
       }
 
       const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
-      const res = await fetch(`${baseUrl}/jobs/profile`, {
+      const res = await fetch(`${baseUrl}/api/jobs/profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -118,7 +118,7 @@ const JobHunterPanel = () => {
     setIsScanning(true);
     try {
       const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
-      const res = await fetch(`${baseUrl}/jobs/scan`, { method: 'POST' });
+      const res = await fetch(`${baseUrl}/api/jobs/scan`, { method: 'POST' });
       if (res.ok) {
         alert('Job scan initiated! Check back in a few minutes.');
       }
@@ -132,7 +132,7 @@ const JobHunterPanel = () => {
   const fetchJobs = async () => {
     try {
       const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
-      const response = await fetch(`${baseUrl}/jobs`);
+      const response = await fetch(`${baseUrl}/api/jobs`);
       const data = await response.json();
       setJobs(data);
     } catch (error) {
@@ -146,7 +146,7 @@ const JobHunterPanel = () => {
     setApplyingId(jobId);
     try {
       const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
-      const response = await fetch(`${baseUrl}/jobs/apply/${jobId}`, {
+      const response = await fetch(`${baseUrl}/api/jobs/apply/${jobId}`, {
         method: 'POST',
       });
       if (response.ok) {
