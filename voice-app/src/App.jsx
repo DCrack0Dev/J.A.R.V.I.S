@@ -742,10 +742,14 @@ export default function App() {
 
   const handleWake = useCallback(() => {
     if (isPanicMute) return;
+    console.log("Waking JARVIS...");
     playChime('wake');
     wake(socketRef.current, USER_ID, SESSION_ID);
-    speak("I'm here.", startListeningRef.current);
-  }, [isPanicMute, wake]);
+    speak("I'm here.", () => {
+      console.log("Wake speech done, starting STT...");
+      startListening();
+    });
+  }, [isPanicMute, wake, startListening]);
 
   const handleSleep = useCallback(() => {
     playChime('sleep');
@@ -958,7 +962,6 @@ export default function App() {
     }
   }, [history]);
 
-  // ── Speech recognition ────────────────────────────────────
   const startListening = useCallback(() => {
     const currentState = useVoiceStore.getState().state;
     // Check REFS and voiceState
@@ -979,7 +982,7 @@ export default function App() {
 
     console.log("Starting STT...");
     const rec = new SR();
-    rec.continuous = true;
+    rec.continuous = false; // Changed to false for better mobile/browser compatibility
     rec.interimResults = true;
     rec.lang = "en-US";
     recognitionRef.current = rec;
@@ -1007,11 +1010,6 @@ export default function App() {
       console.log("User said:", said);
       setTranscript(said);
       
-      try {
-        rec.onend = null;
-        rec.stop();
-      } catch (_) {}
-      
       listeningRef.current = false;
       if (handleSpeechRef.current) handleSpeechRef.current(said);
     };
@@ -1019,10 +1017,18 @@ export default function App() {
     rec.onerror = (event) => {
       console.error("STT Error:", event.error);
       listeningRef.current = false;
+      
+      if (event.error === 'no-speech') {
+        if (!speakingRef.current && startedRef.current && useVoiceStore.getState().state === 'ACTIVE') {
+          setTimeout(() => startListening(), 100);
+        }
+        return;
+      }
+
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') return;
       
       if (!speakingRef.current && startedRef.current && useVoiceStore.getState().state === 'ACTIVE') {
-        setTimeout(() => startListeningRef.current && startListeningRef.current(), 1000);
+        setTimeout(() => startListening(), 1000);
       }
     };
 
@@ -1033,9 +1039,9 @@ export default function App() {
       if (!speakingRef.current && orbStateRef.current !== "thinking" && startedRef.current && useVoiceStore.getState().state === 'ACTIVE') {
         setTimeout(() => {
           if (!speakingRef.current && startedRef.current && useVoiceStore.getState().state === 'ACTIVE') {
-            startListeningRef.current();
+            startListening();
           }
-        }, 300);
+        }, 100);
       }
     };
 
@@ -1045,7 +1051,7 @@ export default function App() {
       console.error("STT start failed:", e);
       listeningRef.current = false;
     }
-  }, []); // currentState is fetched inside
+  }, []); 
 
   useEffect(() => {
     startListeningRef.current = startListening;
@@ -1123,12 +1129,12 @@ export default function App() {
     const showGithubQ = /show.*github|view.*github|check.*github/i.test(said);
 
     if (timeQ) {
-      speak(`It is ${pad(now.h)}:${pad(now.m)}.`, startListeningRef.current);
+      speak(`It is ${pad(now.h)}:${pad(now.m)}.`);
       return;
     }
 
     if (syncGithubQ) {
-      speak("Syncing your GitHub profile and repositories. I'll notify you when complete.", startListeningRef.current);
+      speak("Syncing your GitHub profile and repositories. I'll notify you when complete.");
       const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
       fetch(`${baseUrl}/api/github/sync`, { method: 'POST' }).catch(console.error);
       return;
@@ -1139,14 +1145,14 @@ export default function App() {
       fetch(`${baseUrl}/api/github/summary`)
         .then(res => res.json())
         .then(data => {
-          speak(data.summary, startListeningRef.current);
+          speak(data.summary);
         });
       return;
     }
 
     if (showGithubQ) {
       setView('github');
-      speak("Switching to GitHub Intelligence module. Here is your current profile and repository status.", startListeningRef.current);
+      speak("Switching to GitHub Intelligence module. Here is your current profile and repository status.");
       return;
     }
 
@@ -1157,7 +1163,7 @@ export default function App() {
 
     if (jobsQ) {
       setView('jobs');
-      speak("Understood. Initiating job search across LinkedIn, PNet, and Careers24. I'll update the board as I find matching roles.", startListeningRef.current);
+      speak("Understood. Initiating job search across LinkedIn, PNet, and Careers24. I'll update the board as I find matching roles.");
       // Trigger backend scan
       const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
       fetch(`${baseUrl}/api/jobs/scan`, { method: 'POST' }).catch(console.error);
@@ -1166,7 +1172,7 @@ export default function App() {
 
     if (showJobsQ) {
       setView('jobs');
-      speak("Switching to Job Hunter module. Here are the latest opportunities we've found.", startListeningRef.current);
+      speak("Switching to Job Hunter module. Here are the latest opportunities we've found.");
       return;
     }
 
@@ -1179,7 +1185,7 @@ export default function App() {
       const modelIntent = strategyQ ? "strategy" : dayOverviewQ ? "day_overview" : "motivation";
       const modelText = await askModel(said, modelIntent);
       if (modelText) {
-        speak(modelText, startListeningRef.current);
+        speak(modelText);
         return;
       }
     }
@@ -1192,7 +1198,7 @@ export default function App() {
       } else {
         msg += `You are between blocks right now. `;
       }
-      speak(msg, startListeningRef.current);
+      speak(msg);
       return;
     }
 
@@ -1200,7 +1206,7 @@ export default function App() {
       const msg = nextBlock
         ? `Up next is ${nextBlock.label} at ${nextBlock.start}. ${nextBlock.detail}.`
         : `No more planned blocks today. Close out with review and recovery.`;
-      speak(msg, startListeningRef.current);
+      speak(msg);
       return;
     }
 
@@ -1211,7 +1217,7 @@ export default function App() {
     window.speechSynthesis.cancel();
     const modelText = await askModel(said, "general");
     if (modelText) {
-      speak(modelText, startListeningRef.current);
+      speak(modelText);
       return;
     }
 
@@ -1220,8 +1226,8 @@ export default function App() {
       ? `Right now your priority is ${currentBlock.label} until ${currentBlock.end}. Focus on ${currentBlock.detail}. ${nextBlock ? `After that, switch to ${nextBlock.label} at ${nextBlock.start}.` : "After this, close the day with a short review."}`
       : `You are between blocks. Reset quickly and prepare for ${nextBlock ? `${nextBlock.label} at ${nextBlock.start}` : "your next planned session"}.`;
 
-    speak(shortReply, startListeningRef.current);
-  }, [now, todayData, currentBlock, nextBlock, remaining, speak, askModel]); // eslint-disable-line
+    speak(shortReply);
+  }, [now, todayData, currentBlock, nextBlock, remaining, speak, askModel, handleSleep, startListening]); // eslint-disable-line
 
   useEffect(() => {
     handleSpeechRef.current = handleSpeech;
@@ -1246,7 +1252,7 @@ export default function App() {
     }
     welcome += `I'm listening. Just talk to me.`;
 
-    speak(welcome, startListeningRef.current);
+    speak(welcome);
     welcomedRef.current = true;
   }, [currentBlock, remaining, speak]);
 
