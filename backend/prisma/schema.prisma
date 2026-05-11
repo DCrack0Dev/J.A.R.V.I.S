@@ -64,61 +64,47 @@ model UserProfile {
   @@map("user_profile")
 }
 
-model GithubRepo {
-  id            String    @id @default(uuid()) @db.Uuid
-  repoId        BigInt    @unique @map("repo_id")
-  name          String
-  fullName      String    @map("full_name")
-  description   String?
-  url           String?
-  isPrivate     Boolean   @default(false) @map("is_private")
-  language      String?
-  stars         Int       @default(0)
-  forks         Int       @default(0)
-  openIssues    Int       @default(0) @map("open_issues")
-  topics        String[]
-  readmeContent String?   @map("readme_content")
-  readmeSha     String?   @map("readme_sha")
-  lastPushedAt  DateTime? @map("last_pushed_at")
-  lastSyncedAt  DateTime  @default(now()) @map("last_synced_at")
-  aiHealthScore Int?      @map("ai_health_score")
-  aiSuggestions Json?     @map("ai_suggestions")
+model GitHubProfile {
+  id          String       @id @default(uuid()) @db.Uuid
+  userId      String?      @map("user_id")
+  login       String       @unique
+  name        String?
+  bio         String?
+  avatarUrl   String?      @map("avatar_url")
+  publicRepos Int          @default(0) @map("public_repos")
+  followers   Int          @default(0)
+  following   Int          @default(0)
+  htmlUrl     String?      @map("html_url")
+  syncedAt    DateTime     @default(now()) @map("synced_at")
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  repos       GitHubRepo[]
+
+  @@map("github_profiles")
+}
+
+model GitHubRepo {
+  id          String        @id @default(uuid()) @db.Uuid
+  profileId   String        @map("profile_id") @db.Uuid
+  name        String
+  fullName    String        @unique @map("full_name")
+  description String?
+  htmlUrl     String?       @map("html_url")
+  language    String?
+  stars       Int           @default(0)
+  forks       Int           @default(0)
+  isPrivate   Boolean       @default(false) @map("is_private")
+  topics      String[]
+  healthScore Int?          @map("health_score")
+  healthNotes String?       @map("health_notes")
+  readmeDraft String?       @map("readme_draft")
+  scoredAt    DateTime?     @map("scored_at")
+  pushedAt    DateTime?     @map("pushed_at")
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  profile     GitHubProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
 
   @@map("github_repos")
-}
-
-model GithubProfile {
-  id                 String   @id @default(uuid()) @db.Uuid
-  username           String   @unique
-  displayName        String?  @map("display_name")
-  bio                String?
-  avatarUrl          String?  @map("avatar_url")
-  followers          Int?
-  following          Int?
-  publicRepos        Int?     @map("public_repos")
-  profileReadme      String?  @map("profile_readme")
-  profileReadmeSha   String?  @map("profile_readme_sha")
-  totalStars         Int?     @map("total_stars")
-  topLanguages       Json?    @map("top_languages")
-  contributionStreak Int?     @map("contribution_streak")
-  lastSyncedAt       DateTime @default(now()) @map("last_synced_at")
-
-  @@map("github_profile")
-}
-
-model GithubEdit {
-  id              String   @id @default(uuid()) @db.Uuid
-  repoFullName    String?  @map("repo_full_name")
-  editType        String   @map("edit_type")
-  originalContent String?  @map("original_content")
-  newContent      String?  @map("new_content")
-  aiPromptUsed    String?  @map("ai_prompt_used")
-  committedAt     DateTime? @map("committed_at")
-  commitSha       String?  @map("commit_sha")
-  status          String   @default("pending")
-  createdAt       DateTime @default(now()) @map("created_at")
-
-  @@map("github_edits")
 }
 
 model ScheduleDay {

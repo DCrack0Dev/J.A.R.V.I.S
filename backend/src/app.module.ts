@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { JobsModule } from './jobs/jobs.module';
-import { GithubModule } from './github/github.module';
+import { GitHubModule } from './github/github.module';
 import { ScheduleModule } from './schedule/schedule.module';
 import { ContextModule } from './context/context.module';
 import { RealTimeModule } from './realtime/realtime.module';
@@ -22,7 +22,7 @@ import { BullModule } from '@nestjs/bullmq';
       },
     }),
     JobsModule,
-    GithubModule,
+    GitHubModule,
     ScheduleModule,
     ContextModule,
     RealTimeModule,

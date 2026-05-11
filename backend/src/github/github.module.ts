@@ -1,18 +1,12 @@
 import { Module } from '@nestjs/common';
-import { GithubController } from './github.controller';
-import { GithubSyncService } from './github-sync.service';
-import { GithubEditService } from './github-edit.service';
-import { GithubClientService } from './github-client.service';
+import { GitHubSyncService } from './github-sync.service';
+import { GitHubIntelligenceService } from './github-intelligence.service';
+import { GitHubController } from './github.controller';
 import { PrismaService } from '../prisma.service';
 
 @Module({
-  controllers: [GithubController],
-  providers: [
-    GithubSyncService,
-    GithubEditService,
-    GithubClientService,
-    PrismaService,
-  ],
-  exports: [GithubSyncService, GithubEditService],
+  providers: [GitHubSyncService, GitHubIntelligenceService, PrismaService],
+  controllers: [GitHubController],
+  exports: [GitHubSyncService, GitHubIntelligenceService],
 })
-export class GithubModule {}
+export class GitHubModule {}
