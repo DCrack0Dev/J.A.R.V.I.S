@@ -1,55 +1,68 @@
-import { Controller, Get, Post, Body, Patch, Param, Query, UseInterceptors, UploadedFile } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Body,
+  UseInterceptors,
+  UploadedFile,
+  NotFoundException,
+  Logger,
+} from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JobsService } from './jobs.service';
-import { ScraperService } from './scraper.service';
-import type { SearchCriteria, ApplicationStatus } from './types';
+import { ApiConsumes, ApiBody, ApiTags, ApiOperation } from '@nestjs/swagger';
 
-@Controller('jobs')
+@ApiTags('Jobs')
+@Controller('jobs/profile')
 export class JobsController {
-  constructor(
-    private readonly jobsService: JobsService,
-    private readonly scraperService: ScraperService,
-  ) {}
+  private readonly logger = new Logger(JobsController.name);
 
-  @Post('resume/upload')
+  constructor(private readonly jobsService: JobsService) {}
+
+  @Post('upload-resume')
+  @ApiOperation({ summary: 'Upload a PDF resume and parse it using AI' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+      },
+    },
+  })
   @UseInterceptors(FileInterceptor('file'))
   async uploadResume(@UploadedFile() file: Express.Multer.File) {
-    return this.jobsService.processResume(file);
+    this.logger.log(`Resume upload received: ${file.originalname}`);
+    return await this.jobsService.parseResume(file.buffer);
+  }
+
+  @Post()
+  @ApiOperation({ summary: 'Manually setup or overwrite the job profile' })
+  async setupProfile(@Body() data: any) {
+    return await this.jobsService.upsertProfile(data);
   }
 
   @Get()
-  async findAll(@Query() criteria: SearchCriteria) {
-    return this.jobsService.findAll(criteria);
-  }
-
-  @Post('scan')
-  async scan() {
-    const profile = await this.jobsService.getProfile();
-    const roles = profile?.targetRoles?.length ? profile.targetRoles : ['Software Engineer', 'Full Stack Developer'];
-    this.scraperService.scrapeAll(roles, 'South Africa');
-    return { message: 'Scan initiated', roles };
-  }
-
-  @Post('apply/:id')
-  async apply(@Param('id') id: string) {
-    return this.jobsService.createApplication(id);
-  }
-
-  @Patch('applications/:id/status')
-  async updateStatus(
-    @Param('id') id: string,
-    @Body('status') status: ApplicationStatus,
-  ) {
-    return this.jobsService.updateApplicationStatus(id, status);
-  }
-
-  @Get('profile')
+  @ApiOperation({ summary: 'Get the current job profile' })
   async getProfile() {
-    return this.jobsService.getProfile();
+    const profile = await this.jobsService.getProfile();
+    if (!profile) {
+      throw new NotFoundException('No profile set up yet');
+    }
+    return profile;
   }
 
-  @Post('profile')
+  @Put()
+  @ApiOperation({ summary: 'Update the existing job profile' })
   async updateProfile(@Body() data: any) {
-    return this.jobsService.updateProfile(data);
+    const profile = await this.jobsService.updateProfile(data);
+    if (!profile) {
+      throw new NotFoundException('No profile set up yet');
+    }
+    return profile;
   }
 }
