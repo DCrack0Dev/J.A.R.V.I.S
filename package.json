@@ -1,0 +1,12 @@
+{
+  "name": "jarvis-monorepo",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "voice-app"
+  ],
+  "scripts": {
+    "build:backend": "npm run build --workspace=backend",
+    "build:frontend": "npm run build --workspace=voice-app"
+  }
+}

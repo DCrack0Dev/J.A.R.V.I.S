@@ -227,6 +227,11 @@ body::before {
   display: flex;
   flex-direction: column;
   gap: 15px;
+  transition: opacity 0.5s;
+}
+
+.shell.sleeping {
+  opacity: 0.4;
 }
 
 /* HEADER HUD */
@@ -271,13 +276,40 @@ body::before {
   animation: blink 1s infinite;
 }
 
+.status-dot.offline {
+  background: #ff3939;
+  box-shadow: 0 0 10px #ff3939;
+}
+
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-/* ARC REACTOR */
+/* ARC REACTOR / ORB */
 .arc-reactor {
   width: 50px;
   height: 50px;
   position: relative;
+  cursor: pointer;
+  transition: all 0.4s;
+}
+
+.arc-reactor.sleeping {
+  opacity: 0.2;
+  animation: breathe 2s ease-in-out infinite;
+}
+
+.arc-reactor.wake-flash {
+  animation: wake-flash-anim 0.4s ease-out;
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.2; transform: scale(0.95); }
+  50% { opacity: 0.4; transform: scale(1); }
+}
+
+@keyframes wake-flash-anim {
+  0% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.3); filter: brightness(2); }
+  100% { transform: scale(1); filter: brightness(1); }
 }
 
 .arc-ring {
@@ -297,12 +329,31 @@ body::before {
   animation: spin 5s linear infinite reverse;
 }
 
+.arc-reactor.sleeping .arc-ring-inner {
+  border-color: #550000;
+  box-shadow: inset 0 0 10px #550000, 0 0 10px #550000;
+}
+
 .arc-core {
   position: absolute;
   inset: 18px;
   background: var(--hud-cyan);
   border-radius: 50%;
   box-shadow: 0 0 15px var(--hud-cyan);
+}
+
+.arc-reactor.sleeping .arc-core {
+  background: #330000;
+  box-shadow: 0 0 15px #330000;
+}
+
+.arc-reactor.alert-pulse .arc-core {
+  animation: alert-pulse-anim 1s infinite;
+}
+
+@keyframes alert-pulse-anim {
+  0%, 100% { background: #ffaa00; box-shadow: 0 0 15px #ffaa00; }
+  50% { background: #ff6a00; box-shadow: 0 0 30px #ff6a00; }
 }
 
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -400,8 +451,20 @@ body::before {
 /* ORB HUD */
 .hud-orb-wrap {
   display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  gap: 10px;
+}
+
+.hud-offline-text {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 12px;
+  letter-spacing: 4px;
+  color: #ff3939;
+  text-shadow: 0 0 10px #ff3939;
+  animation: blink 2s infinite;
 }
 
 .hud-orb {
@@ -417,6 +480,7 @@ body::before {
   cursor: pointer;
 }
 
+.hud-orb.sleeping { opacity: 0.2; border-color: #550000; }
 .hud-orb.listening { border-color: var(--hud-cyan); box-shadow: var(--hud-glow); }
 .hud-orb.speaking { border-color: var(--hud-orange); box-shadow: 0 0 20px var(--hud-orange); }
 .hud-orb.thinking { border-color: #9b6dff; box-shadow: 0 0 20px #9b6dff; animation: thinking-pulse 1.5s infinite; }
@@ -506,8 +570,6 @@ const WAKE_WORDS = ["hey tebogo", "tebogo", "hey coach", "coach", "assistant", "
 const hasSpeechRecog =
   typeof window !== "undefined" && ("webkitSpeechRecognition" in window || "SpeechRecognition" in window);
 const hasSpeechSynth = typeof window !== "undefined" && "speechSynthesis" in window;
-const MODEL_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY;
-const MODEL_NAME = import.meta.env.VITE_OPENROUTER_MODEL || "openai/gpt-4o-mini";
 
 export default function App() {
   const [schedule, setSchedule] = useState(null);
@@ -524,14 +586,21 @@ export default function App() {
   const [redesignInstructions, setRedesignInstructions] = useState("");
   const [showRedesignModal, setShowRedesignModal] = useState(false);
 
+  // NEW FEATURE 1 & 2 STATE
+  const [isAwake, setIsAwake] = useState(true);
+  const [sleepReason, setSleepReason] = useState(null);
+  const [lastAcknowledgedBlock, setLastAcknowledgedBlock] = useState(null);
+  const [alertCount, setAlertCount] = useState({});
+  const [wakeFlash, setWakeFlash] = useState(false);
+
   const recognitionRef = useRef(null);
   const activeBlockRef = useRef(null);
   const scrollContainerRef = useRef(null);
   const listeningRef = useRef(false);
   const speakingRef = useRef(false);
-  const welcomedRef = useRef(false);
   const orbStateRef = useRef("idle");
   const startedRef = useRef(false);
+  const isAwakeRef = useRef(true);
 
   // Use refs for callbacks to break circular dependencies
   const handleSpeechRef = useRef(null);
@@ -540,18 +609,16 @@ export default function App() {
   // Sync state to refs for immediate access in callbacks
   useEffect(() => { orbStateRef.current = orbState; }, [orbState]);
   useEffect(() => { startedRef.current = started; }, [started]);
+  useEffect(() => { isAwakeRef.current = isAwake; }, [isAwake]);
 
   // Fetch schedule and seed if necessary
   useEffect(() => {
     const initSchedule = async () => {
       try {
         const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
-        
-        // 1. Check if schedule exists in DB first
         const checkRes = await fetch(`${baseUrl}/api/schedule`);
         const existingData = await checkRes.json();
         
-        // 2. If DB is empty, seed it with hardcoded SCHEDULE
         if (!existingData || Object.keys(existingData).length === 0) {
           console.log("Database schedule empty. Seeding initial data...");
           await fetch(`${baseUrl}/api/schedule/seed`, {
@@ -579,14 +646,70 @@ export default function App() {
     return () => clearInterval(id);
   }, []);
 
+  // ── FEATURE 2: SMART SELF-WAKE SYSTEM ───────────────────────
+  useEffect(() => {
+    const checkScheduleAlerts = () => {
+      if (!schedule) return;
+      const n = getNow();
+      const todayBlocks = schedule[n.day]?.blocks || [];
+      if (todayBlocks.length === 0) return;
+
+      const firstBlock = todayBlocks[0];
+      const nextUpcoming = todayBlocks.find(b => toMin(b.start) > n.totalMinutes);
+      
+      const minsUntilFirst = toMin(firstBlock.start) - n.totalMinutes;
+      const minsUntilNext = nextUpcoming ? toMin(nextUpcoming.start) - n.totalMinutes : Infinity;
+
+      let triggerWake = false;
+      let alertMsg = "";
+      let blockId = "";
+
+      // Scenarios
+      if (minsUntilFirst === 60) {
+        triggerWake = true;
+        blockId = `pre-day-${firstBlock.label}`;
+        alertMsg = `Good morning Boss. Your day starts in one hour with ${firstBlock.label} at ${firstBlock.start}. Time to get up.`;
+      } else if (minsUntilFirst === 0) {
+        triggerWake = true;
+        blockId = `start-day-${firstBlock.label}`;
+        alertMsg = `Boss, ${firstBlock.label} is starting now. Let's go.`;
+      } else if (nextUpcoming && minsUntilNext <= 10 && minsUntilNext > 0) {
+        triggerWake = true;
+        blockId = `soon-${nextUpcoming.label}`;
+        alertMsg = `Heads up Boss — ${nextUpcoming.label} starts in ${minsUntilNext} minutes. ${nextUpcoming.label} block: ${nextUpcoming.start} to ${nextUpcoming.end}.`;
+      } else if (nextUpcoming && minsUntilNext === 0) {
+        triggerWake = true;
+        blockId = `start-${nextUpcoming.label}`;
+        alertMsg = `Boss, ${nextUpcoming.label} is starting now. Let's go.`;
+      }
+
+      if (triggerWake && lastAcknowledgedBlock !== blockId) {
+        const currentCount = alertCount[blockId] || 0;
+        if (currentCount < 3) {
+          if (!isAwakeRef.current) {
+            setIsAwake(true);
+            setSleepReason("block_alert");
+            setWakeFlash(true);
+            setTimeout(() => setWakeFlash(false), 400);
+          }
+          speak(alertMsg, startListeningRef.current);
+          setAlertCount(prev => ({ ...prev, [blockId]: currentCount + 1 }));
+        }
+      }
+    };
+
+    // Run every 60 seconds
+    const interval = setInterval(checkScheduleAlerts, 60000);
+    checkScheduleAlerts(); // Initial check
+    return () => clearInterval(interval);
+  }, [schedule, lastAcknowledgedBlock, alertCount, speak]);
+
   // ── Schedule helpers ──────────────────────────────────────
   const now = getNow();
   const getTodayData = () => {
-    // Only use database schedule if it has a valid theme and blocks
     if (schedule && schedule[now.day] && schedule[now.day].theme && schedule[now.day].blocks?.length > 0) {
       return schedule[now.day];
     }
-    // Fallback to hardcoded SCHEDULE
     return SCHEDULE[now.day] || { theme: "Elite Operations", blocks: [] };
   };
 
@@ -614,12 +737,59 @@ export default function App() {
     progress = Math.min(100, Math.max(0, ((now.totalMinutes - s) / (e - s)) * 100));
   }
 
+  // ── FEATURE 1: SLEEP/WAKE TOGGLE ────────────────────────────
+  const toggleSleep = useCallback((forceState = null) => {
+    const newState = forceState !== null ? forceState : !isAwakeRef.current;
+    
+    if (newState === isAwakeRef.current) return;
+
+    if (!newState) {
+      // Going to Sleep
+      setIsAwake(false);
+      setSleepReason(null);
+      if (recognitionRef.current) {
+        try { recognitionRef.current.stop(); } catch (_) {}
+      }
+      window.speechSynthesis.cancel();
+      speak("Going offline, Boss. I'll wake you when it matters.", () => {
+        setOrbState("idle");
+        listeningRef.current = false;
+        speakingRef.current = false;
+      });
+    } else {
+      // Waking Up
+      setIsAwake(true);
+      setWakeFlash(true);
+      setTimeout(() => setWakeFlash(false), 400);
+      speak("Systems online. What do you need, Boss?", startListeningRef.current);
+    }
+  }, [speak]);
+
+  // ── Morning Briefing ──────────────────────────────────────
+  const morningBriefing = useCallback(async () => {
+    const n = getNow();
+    const firstThree = blocks.slice(0, 3).map(b => `${b.label} at ${b.start}`).join(', ');
+    
+    let briefing = `Good morning Boss. Today is ${n.dayName}, theme is ${todayData.theme}. It's ${pad(n.h)}:${pad(n.m)}. `;
+    briefing += `Your first three blocks are: ${firstThree}. `;
+    
+    // Add high-priority alerts placeholder
+    briefing += `I'm monitoring your career and github status. `;
+    briefing += `One more thing: The fact that you're up means you're already ahead. Let's win the day.`;
+
+    if (!isAwakeRef.current) {
+      setIsAwake(true);
+      setWakeFlash(true);
+      setTimeout(() => setWakeFlash(false), 400);
+    }
+    speak(briefing, startListeningRef.current);
+  }, [blocks, todayData, speak]);
+
   // ── Speech synthesis ──────────────────────────────────────
   const speak = useCallback((text, onDone) => {
     if (!hasSpeechSynth) return;
     window.speechSynthesis.cancel();
     
-    // Set refs immediately
     speakingRef.current = true;
     orbStateRef.current = "speaking";
     
@@ -632,7 +802,6 @@ export default function App() {
     
     u.onboundary = (event) => {
       if (event.name === 'word') {
-        // Estimate word index based on character offset
         const spokenPart = text.substring(0, event.charIndex);
         const words = spokenPart.trim().split(/\s+/);
         setCurrentWordIndex(spokenPart.trim() === "" ? 0 : words.length);
@@ -651,42 +820,46 @@ export default function App() {
     };
     u.onend = () => {
       speakingRef.current = false;
-      orbStateRef.current = "listening";
-      setOrbState("listening");
-      
-      // Force a restart after a tiny delay to let hardware clear
-      setTimeout(() => {
-        if (startedRef.current && !speakingRef.current) {
-          startListeningRef.current();
-        }
-      }, 200);
+      if (isAwakeRef.current) {
+        orbStateRef.current = "listening";
+        setOrbState("listening");
+        setTimeout(() => {
+          if (startedRef.current && !speakingRef.current && isAwakeRef.current) {
+            startListeningRef.current();
+          }
+        }, 200);
+      } else {
+        setOrbState("idle");
+      }
       onDone && onDone();
     };
     u.onerror = () => {
       speakingRef.current = false;
-      orbStateRef.current = "listening";
-      setOrbState("listening");
-      setTimeout(() => {
-        if (startedRef.current && !speakingRef.current) {
-          startListeningRef.current();
-        }
-      }, 200);
+      if (isAwakeRef.current) {
+        orbStateRef.current = "listening";
+        setOrbState("listening");
+        setTimeout(() => {
+          if (startedRef.current && !speakingRef.current && isAwakeRef.current) {
+            startListeningRef.current();
+          }
+        }, 200);
+      } else {
+        setOrbState("idle");
+      }
       onDone && onDone();
     };
     window.speechSynthesis.speak(u);
   }, []);
 
-  const askModel = useCallback(async (said, intent = "general") => {
+  const askModel = useCallback(async (said) => {
     try {
       const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
       const res = await fetch(`${baseUrl}/api/jarvis/query/${SESSION_ID}`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           query: said,
-          userId: '00000000-0000-0000-0000-000000000001' // Default for now
+          userId: '00000000-0000-0000-0000-000000000001'
         }),
       });
 
@@ -694,10 +867,6 @@ export default function App() {
       const data = await res.json();
       const reply = data.reply;
       
-      if (data.analysis) {
-        setContext(data.analysis);
-      }
-
       if (reply) {
         setHistory(prev => [...prev, { role: "user", content: said }, { role: "assistant", content: reply }]);
       }
@@ -705,11 +874,38 @@ export default function App() {
     } catch (_) {
       return null;
     }
-  }, [history]);
+  }, []);
+
+  // ── FEATURE 3: LIVE SCHEDULE RESTRUCTURING ──────────────────
+  const handleScheduleEdit = useCallback(async (command) => {
+    setIsRedesigning(true);
+    setOrbState("thinking");
+    setResponse("RESTRUCTURING YOUR SCHEDULE...");
+    
+    try {
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      const res = await fetch(`${baseUrl}/api/schedule/edit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          command, 
+          currentSchedule: schedule[now.day], 
+          targetDay: now.day 
+        })
+      });
+      const data = await res.json();
+      setSchedule(prev => ({ ...prev, [now.day]: data.updatedSchedule }));
+      speak(`Done Boss. I've updated your ${now.dayName} schedule. ${data.summary}`, startListeningRef.current);
+    } catch (e) {
+      speak("I encountered an error while trying to edit your schedule.", startListeningRef.current);
+    } finally {
+      setIsRedesigning(false);
+    }
+  }, [schedule, now, speak]);
 
   // ── Speech recognition ────────────────────────────────────
   const startListening = useCallback(() => {
-    // Check REFS, not state, to avoid closure staleness
+    if (!isAwakeRef.current) return;
     if (listeningRef.current || speakingRef.current || orbStateRef.current === "speaking" || orbStateRef.current === "thinking") return;
 
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -728,7 +924,6 @@ export default function App() {
     setOrbState("listening");
 
     rec.onresult = (e) => {
-      // Immediate guard: if we started speaking while a result was processing, ignore it
       if (speakingRef.current) return;
 
       let said = "";
@@ -736,7 +931,6 @@ export default function App() {
         if (e.results[i].isFinal) {
           said += ` ${e.results[i][0].transcript}`;
         } else {
-          // Update transcript in real-time so user knows Jarvis is hearing them
           setTranscript(e.results[i][0].transcript.toLowerCase().trim());
         }
       }
@@ -745,7 +939,7 @@ export default function App() {
 
       setTranscript(said);
       
-      // STOP recognition immediately before handling the speech
+      // Stop recognition
       try {
         rec.onend = null;
         rec.stop();
@@ -753,27 +947,12 @@ export default function App() {
       
       listeningRef.current = false;
       if (handleSpeechRef.current) handleSpeechRef.current(said);
-
-      // Send to context engine for analysis
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
-      fetch(`${baseUrl}/api/context/session/${SESSION_ID}/message`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: 'user', content: said })
-      })
-      .then(res => res.json())
-      .then(analysis => {
-        if (analysis) setContext(analysis);
-      })
-      .catch(console.error);
     };
 
     rec.onerror = (event) => {
       listeningRef.current = false;
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') return;
-      
-      // Only retry if we aren't currently speaking
-      if (!speakingRef.current && startedRef.current) {
+      if (!speakingRef.current && startedRef.current && isAwakeRef.current) {
         setTimeout(() => startListeningRef.current && startListeningRef.current(), 1000);
       }
     };
@@ -781,10 +960,9 @@ export default function App() {
     rec.onend = () => {
       listeningRef.current = false;
       recognitionRef.current = null;
-      // Crucial: Only restart if we are not speaking, not thinking, and still in the "started" state
-      if (!speakingRef.current && orbStateRef.current !== "thinking" && startedRef.current) {
+      if (!speakingRef.current && orbStateRef.current !== "thinking" && startedRef.current && isAwakeRef.current) {
         setTimeout(() => {
-          if (!speakingRef.current && startedRef.current) {
+          if (!speakingRef.current && startedRef.current && isAwakeRef.current) {
             startListeningRef.current();
           }
         }, 300);
@@ -792,7 +970,7 @@ export default function App() {
     };
 
     try { rec.start(); } catch (e) { }
-  }, []); // NO dependencies here — we use REFS for everything inside
+  }, []);
 
   useEffect(() => {
     startListeningRef.current = startListening;
@@ -802,130 +980,64 @@ export default function App() {
     if (activeBlockRef.current) {
       activeBlockRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
-  }, [view, started]); // Scroll when day changes or session starts
-
-  const handleRedesign = async (manualInstructions = null) => {
-    const instructions = manualInstructions || redesignInstructions;
-    if (!instructions) return;
-    
-    setIsRedesigning(true);
-    setShowRedesignModal(false);
-    setOrbState("thinking");
-    setResponse("ARCHITECTING NEW SCHEDULE...");
-    
-    try {
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
-      const res = await fetch(`${baseUrl}/api/schedule/redesign`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ instructions })
-      });
-      const newSchedule = await res.json();
-      setSchedule(newSchedule);
-      speak("I have redesigned your weekly schedule based on your instructions.", startListeningRef.current);
-    } catch (e) {
-      speak("I encountered an error while trying to redesign your schedule.", startListeningRef.current);
-    } finally {
-      setIsRedesigning(false);
-      setRedesignInstructions("");
-    }
-  };
+  }, [view, started]);
 
   // ── Intent handler ────────────────────────────────────────
   const handleSpeech = useCallback(async (said) => {
-    // Kill recognition immediately before processing/speaking
+    // Acknowledge alerts
+    if (currentBlock && said.length > 3) {
+      setLastAcknowledgedBlock(currentBlock.label);
+    }
+
     if (recognitionRef.current) {
       try { recognitionRef.current.stop(); } catch(_) {}
       listeningRef.current = false;
     }
-    // Schedule / time queries — answer locally, no API needed
+
+    // Voice commands for Sleep/Wake
+    const sleepIntent = /jarvis sleep|go to sleep|offline/i.test(said);
+    const wakeIntent = /jarvis wake|wake up|online/i.test(said);
+    const morningIntent = /good morning jarvis/i.test(said);
+
+    if (sleepIntent) {
+      toggleSleep(false);
+      return;
+    }
+    if (wakeIntent) {
+      toggleSleep(true);
+      return;
+    }
+    if (morningIntent) {
+      morningBriefing();
+      return;
+    }
+
+    // Schedule Restructuring intents
+    const restructureIntent = /move .* to .*|change .* to .*|swap .* and .*|remove .*|add .* at .*|push everything back|redesign today|restructure my schedule|rebuild my week|i need more time for/i.test(said);
+    if (restructureIntent) {
+      handleScheduleEdit(said);
+      return;
+    }
+
+    // Other existing intents...
     const timeQ = /what time|time is it/i.test(said);
-    const motivateQ = /motivat|hype|pump|encourage|inspire/i.test(said);
-    const dayOverviewQ = /what does my day look like|day look like|full day|whole day|today plan|plan for today|today's schedule|todays schedule/i.test(said);
     const currentQ = /what am i doing|what am i supposed to do|what am i on|current block|right now|now/i.test(said);
     const nextQ = /what.*next|next block|coming up|after this|up next/i.test(said);
-    const strategyQ = /better plan|smarter plan|improve my plan|optimi[sz]e|make.*plan|rework my day|upgrade my schedule|smart-up plan/i.test(said);
-    const redesignQ = /redesign.*schedule|change.*routine|update.*my.*day|new.*schedule/i.test(said);
-    const jobsQ = /find.*jobs|search.*jobs|look.*jobs|job.*hunt|job.*search/i.test(said);
-    const showJobsQ = /show.*jobs|check.*jobs|view.*jobs|job.*board/i.test(said);
-    const syncGithubQ = /sync.*github|github.*sync/i.test(said);
-    const githubScoreQ = /github.*score|how.*repos.*doing/i.test(said);
-    const showGithubQ = /show.*github|view.*github|check.*github/i.test(said);
 
     if (timeQ) {
       speak(`It is ${pad(now.h)}:${pad(now.m)}.`, startListeningRef.current);
       return;
     }
-
-    if (syncGithubQ) {
-      speak("Syncing your GitHub profile and repositories. I'll notify you when complete.", startListeningRef.current);
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
-      fetch(`${baseUrl}/api/github/sync`, { method: 'POST' }).catch(console.error);
-      return;
-    }
-
-    if (githubScoreQ) {
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
-      fetch(`${baseUrl}/api/github/summary`)
-        .then(res => res.json())
-        .then(data => {
-          speak(data.summary, startListeningRef.current);
-        });
-      return;
-    }
-
-    if (showGithubQ) {
-      setView('github');
-      speak("Switching to GitHub Intelligence module. Here is your current profile and repository status.", startListeningRef.current);
-      return;
-    }
-
-    if (redesignQ) {
-      handleRedesign(said);
-      return;
-    }
-
-    if (jobsQ) {
-      setView('jobs');
-      speak("Understood. Initiating job search across LinkedIn, PNet, and Careers24. I'll update the board as I find matching roles.", startListeningRef.current);
-      // Trigger backend scan
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
-      fetch(`${baseUrl}/api/jobs/scan`, { method: 'POST' }).catch(console.error);
-      return;
-    }
-
-    if (showJobsQ) {
-      setView('jobs');
-      speak("Switching to Job Hunter module. Here are the latest opportunities we've found.", startListeningRef.current);
-      return;
-    }
-
-    // Use model for strategic, overview, motivation, and free-form questions FIRST
-    if (strategyQ || dayOverviewQ || motivateQ) {
-      orbStateRef.current = "thinking";
-      setOrbState("thinking");
-      setResponse("THINKING...");
-      window.speechSynthesis.cancel();
-      const modelIntent = strategyQ ? "strategy" : dayOverviewQ ? "day_overview" : "motivation";
-      const modelText = await askModel(said, modelIntent);
-      if (modelText) {
-        speak(modelText, startListeningRef.current);
-        return;
-      }
-    }
-
     if (currentQ) {
       let msg = `Today is ${now.dayName}, theme is ${todayData.theme}. `;
       if (currentBlock) {
-        msg += `You are currently in your ${currentBlock.label} block, which runs until ${currentBlock.end}. ${currentBlock.detail}. `;
-        msg += `You have ${remaining} minutes left. `;
+        msg += `You are currently in your ${currentBlock.label} block, which runs until ${currentBlock.end}. ${currentBlock.detail}. You have ${remaining} minutes left.`;
       } else {
-        msg += `You are between blocks right now. `;
+        msg += `You are between blocks right now.`;
       }
       speak(msg, startListeningRef.current);
       return;
     }
-
     if (nextQ) {
       const msg = nextBlock
         ? `Up next is ${nextBlock.label} at ${nextBlock.start}. ${nextBlock.detail}.`
@@ -934,27 +1046,23 @@ export default function App() {
       return;
     }
 
-    // Everything else (free-form) goes to the model
+    // Free-form to model
     orbStateRef.current = "thinking";
     setOrbState("thinking");
     setResponse("THINKING...");
     window.speechSynthesis.cancel();
     
     try {
-      const modelText = await askModel(said, "general");
+      const modelText = await askModel(said);
       if (modelText) {
         speak(modelText, startListeningRef.current);
         return;
       }
       throw new Error("Model returned no text");
     } catch (err) {
-      console.error("JARVIS Model Error:", err);
-      const fallback = currentBlock
-        ? `I'm having trouble connecting to my core intelligence, but I can see you're in the ${currentBlock.label} block. Let me try to re-establish the link.`
-        : `My intelligence core is offline, but I'm still monitoring your schedule. Give me a moment to reset.`;
-      speak(fallback, startListeningRef.current);
+      speak("My intelligence core is offline, but I'm still monitoring your schedule.", startListeningRef.current);
     }
-  }, [now, todayData, currentBlock, nextBlock, remaining, speak, askModel]); // eslint-disable-line
+  }, [now, todayData, currentBlock, nextBlock, remaining, speak, askModel, toggleSleep, morningBriefing, handleScheduleEdit]);
 
   useEffect(() => {
     handleSpeechRef.current = handleSpeech;
@@ -963,60 +1071,44 @@ export default function App() {
   // ── Start session ─────────────────────────────────────────
   const startSession = useCallback(() => {
     setStarted(true);
+    setIsAwake(true);
     const n = getNow();
-    
-    // Robustly find the theme for the welcome message
-    let currentTheme = "";
-    if (schedule && schedule[n.day] && schedule[n.day].theme) {
-      currentTheme = schedule[n.day].theme;
-    } else {
-      currentTheme = SCHEDULE[n.day]?.theme || "Elite Operations";
-    }
-    
-    let welcome = `Hey Tebogo. Today is ${n.dayName}, theme is ${currentTheme}. `;
-    if (currentBlock) {
-      welcome += `You're in your ${currentBlock.label} block — ${remaining} minutes left. `;
-    }
-    welcome += `I'm listening. Just talk to me.`;
-
+    let currentTheme = (schedule?.[n.day]?.theme) || (SCHEDULE[n.day]?.theme) || "Elite Operations";
+    let welcome = `Hey Tebogo. Systems online. Theme is ${currentTheme}. I'm listening.`;
     speak(welcome, startListeningRef.current);
-    welcomedRef.current = true;
-  }, [currentBlock, remaining, speak]);
+  }, [schedule, speak]);
 
-  // Orb icon
-  const orbIcon = orbState === "idle" ? "🎙️"
+  const orbIcon = !isAwake ? "💤"
+    : orbState === "idle" ? "🎙️"
     : orbState === "listening" ? "👂"
     : orbState === "thinking" ? "🧠"
     : "🔊";
-
-  const waveClass = orbState === "speaking" ? "gold-wave"
-    : orbState === "thinking" ? "purple-wave"
-    : "";
 
   return (
     <>
       <style>{css}</style>
       <div className="scanlines" />
-      
-      <div className="shell">
-        {/* HEADER */}
+      <div className={`shell ${!isAwake ? 'sleeping' : ''}`}>
         <header className="hud-header">
           <div className="hud-title-wrap">
             <h1>JARVIS</h1>
             <div className="hud-subtitle">// STARK INDUSTRIES — PERSONAL OPERATIONS INTERFACE</div>
           </div>
           <div className="system-status">
-            <div className="status-dot" />
-            <span>SYSTEM ONLINE</span>
+            <div className={`status-dot ${!isAwake ? 'offline' : ''}`} />
+            <span>{isAwake ? 'SYSTEM ONLINE' : 'STANDBY MODE'}</span>
           </div>
-          <div className="arc-reactor">
+          <div 
+            className={`arc-reactor ${!isAwake ? 'sleeping' : ''} ${wakeFlash ? 'wake-flash' : ''} ${sleepReason === 'block_alert' ? 'alert-pulse' : ''}`}
+            onClick={() => toggleSleep()}
+            title={isAwake ? "Put JARVIS to sleep" : "Wake JARVIS"}
+          >
             <div className="arc-ring" />
             <div className="arc-ring-inner" />
             <div className="arc-core" />
           </div>
         </header>
 
-        {/* CLOCK */}
         <div className="hud-clock-wrap">
           <ContextBar context={context} />
           <div className="hud-clock">{pad(now.h)}:{pad(now.m)}:{pad(now.s)}</div>
@@ -1025,7 +1117,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* HABIT CARD / DIRECTIVES */}
         <div className="hud-panel">
           <div className="hud-panel-label">[SYSTEM DIRECTIVES]</div>
           <div style={{ fontSize: '11px', lineHeight: '1.8' }}>
@@ -1036,275 +1127,78 @@ export default function App() {
           </div>
         </div>
 
-        {/* ORB HUD */}
         <div className="hud-orb-wrap">
-          <div className={`hud-orb ${orbState}`} onClick={!started ? startSession : undefined}>
+          <div 
+            className={`hud-orb ${!isAwake ? 'sleeping' : orbState}`} 
+            onClick={!started ? startSession : () => toggleSleep()}
+            title={isAwake ? "Put JARVIS to sleep" : "Wake JARVIS"}
+          >
             <div style={{ fontSize: '30px' }}>{orbIcon}</div>
           </div>
+          {!isAwake && <div className="hud-offline-text">JARVIS OFFLINE</div>}
         </div>
 
-        {/* QUICK ACTIONS BAR */}
-        {started && (
+        {started && isAwake && (
           <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', flexWrap: 'wrap' }}>
-            <button 
-              onClick={() => handleRedesign("Optimize my day for maximum productivity")}
-              style={{
-                background: 'transparent',
-                border: '1px solid var(--hud-orange)',
-                color: 'var(--hud-orange)',
-                fontSize: '8px',
-                padding: '4px 10px',
-                cursor: 'pointer',
-                letterSpacing: '1px'
-              }}
-            >
-              OPTIMIZE DAY
-            </button>
-            <button 
-              onClick={() => {
-                const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
-                fetch(`${baseUrl}/api/github/sync`, { method: 'POST' });
-              }}
-              style={{
-                background: 'transparent',
-                border: '1px solid var(--hud-cyan)',
-                color: 'var(--hud-cyan)',
-                fontSize: '8px',
-                padding: '4px 10px',
-                cursor: 'pointer',
-                letterSpacing: '1px'
-              }}
-            >
-              SYNC GITHUB
-            </button>
-            <button 
-              onClick={() => {
-                const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
-                fetch(`${baseUrl}/api/jobs/scan`, { method: 'POST' });
-              }}
-              style={{
-                background: 'transparent',
-                border: '1px solid #39ff6a',
-                color: '#39ff6a',
-                fontSize: '8px',
-                padding: '4px 10px',
-                cursor: 'pointer',
-                letterSpacing: '1px'
-              }}
-            >
-              SCAN JOBS
-            </button>
+            <button onClick={() => setView(now.day)} style={{ background: 'transparent', border: '1px solid var(--hud-cyan)', color: 'var(--hud-cyan)', fontSize: '8px', padding: '4px 10px', cursor: 'pointer' }}>TODAY</button>
+            <button onClick={() => morningBriefing()} style={{ background: 'transparent', border: '1px solid #39ff6a', color: '#39ff6a', fontSize: '8px', padding: '4px 10px', cursor: 'pointer' }}>BRIEFING</button>
+            <button onClick={() => handleScheduleEdit("redesign today")} style={{ background: 'transparent', border: '1px solid var(--hud-orange)', color: 'var(--hud-orange)', fontSize: '8px', padding: '4px 10px', cursor: 'pointer' }}>RESTRUCTURE</button>
           </div>
         )}
 
-        {/* TRANSCRIPT */}
-        {started && (
+        {started && isAwake && (
           <div className="hud-panel" style={{ textAlign: 'center', minHeight: '80px' }}>
             <div className="hud-panel-label">[COMMS LINK]</div>
             {transcript && <div style={{ opacity: 0.5, fontSize: '10px', marginBottom: '5px' }}>USER: {transcript.toUpperCase()}</div>}
             {response && (
-              <div style={{ 
-                color: orbState === "thinking" ? "#9b6dff" : 'var(--hud-orange)', 
-                fontWeight: orbState === "thinking" ? 'bold' : 'normal',
-                lineHeight: '1.4'
-              }}>
+              <div style={{ color: orbState === "thinking" ? "#9b6dff" : 'var(--hud-orange)', lineHeight: '1.4' }}>
                 JARVIS: {response.split(/\s+/).map((word, idx) => (
-                  <span 
-                    key={idx} 
-                    style={{ 
-                      backgroundColor: idx === currentWordIndex ? 'var(--hud-orange)' : 'transparent',
-                      color: idx === currentWordIndex ? 'var(--hud-bg)' : 'inherit',
-                      padding: '0 2px',
-                      transition: 'all 0.1s'
-                    }}
-                  >
+                  <span key={idx} style={{ backgroundColor: idx === currentWordIndex ? 'var(--hud-orange)' : 'transparent', color: idx === currentWordIndex ? 'var(--hud-bg)' : 'inherit', padding: '0 2px' }}>
                      {word.toUpperCase()}{' '}
                    </span>
                  ))}
                </div>
              )}
             {!transcript && !response && <div style={{ opacity: 0.4 }}>AWAITING INPUT...</div>}
-            
-            {/* MANUAL RESTART BUTTON */}
-            {orbState === "idle" && (
-              <button 
-                onClick={() => startListeningRef.current()}
-                style={{
-                  marginTop: '10px',
-                  background: 'transparent',
-                  border: '1px solid var(--hud-cyan)',
-                  color: 'var(--hud-cyan)',
-                  fontSize: '8px',
-                  padding: '4px 8px',
-                  cursor: 'pointer'
-                }}
-              >
-                RE-ESTABLISH COMMS
-              </button>
-            )}
           </div>
         )}
 
-        {/* TABS HUD */}
         <div className="hud-tabs">
-          {DAYS.map((d, i) => (
-            <button 
-              key={d} 
-              className={`hud-tab ${view === d ? 'active' : ''}`}
-              onClick={() => setView(d)}
-            >
-              {d}
-            </button>
+          {DAYS.map((d) => (
+            <button key={d} className={`hud-tab ${view === d ? 'active' : ''}`} onClick={() => setView(d)}>{d}</button>
           ))}
-          <button 
-            className={`hud-tab ${view === 'jobs' ? 'active' : ''}`}
-            onClick={() => setView('jobs')}
-          >
-            JOBS
-          </button>
-          <button 
-            className={`hud-tab ${view === 'github' ? 'active' : ''}`}
-            onClick={() => setView('github')}
-          >
-            GITHUB
-          </button>
+          <button className={`hud-tab ${view === 'jobs' ? 'active' : ''}`} onClick={() => setView('jobs')}>JOBS</button>
+          <button className={`hud-tab ${view === 'github' ? 'active' : ''}`} onClick={() => setView('github')}>GITHUB</button>
         </div>
 
-        {view === 'jobs' ? (
-          <div className="hud-panel scrollable">
-            <div className="hud-panel-label">[JOB HUNTER MODULE]</div>
-            <div className="hud-scroll-content">
-              <JobHunterPanel />
-            </div>
-          </div>
-        ) : view === 'github' ? (
-          <div className="hud-panel scrollable">
-            <div className="hud-panel-label">[GITHUB INTELLIGENCE]</div>
-            <div className="hud-scroll-content">
-              <GitHubPanel />
-            </div>
-          </div>
-        ) : (
-           <div className="hud-panel scrollable" ref={scrollContainerRef}>
-             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'absolute', top: '-12px', left: '10px', right: '10px', zIndex: 5 }}>
-               <div className="hud-panel-label">[OPERATIONS LOG: {DAY_NAMES[DAYS.indexOf(view)].toUpperCase()}]</div>
-               <button 
-                 onClick={() => setShowRedesignModal(true)}
-                 style={{
-                   background: 'var(--hud-bg)',
-                   border: '1px solid var(--hud-orange)',
-                   color: 'var(--hud-orange)',
-                   fontSize: '8px',
-                   padding: '2px 8px',
-                   cursor: 'pointer',
-                   letterSpacing: '1px'
-                 }}
-               >
-                 REDESIGN ROUTINE
-               </button>
-             </div>
-             <div className="hud-scroll-content">
-               {(schedule?.[view]?.blocks || []).map((b, i) => {
-                 const isCurrent = view === now.day && now.totalMinutes >= toMin(b.start) && now.totalMinutes < toMin(b.end);
-                 return (
-                  <div 
-                    key={i} 
-                    ref={isCurrent ? activeBlockRef : null}
-                    className={`hud-block ${isCurrent ? 'active' : ''}`}
-                  >
-                    <div className="hud-block-time">{b.start} - {b.end}</div>
-                    <div className="hud-block-content" style={{ borderLeftColor: b.label.includes('Cleaning') ? 'var(--hud-orange)' : 'var(--hud-cyan)' }}>
-                      <div className="hud-block-label">
-                        {b.icon} {b.label.toUpperCase()}
-                        {isCurrent && <span className="hud-badge" style={{ color: 'var(--hud-orange)' }}>[ACTIVE]</span>}
-                        {b.label.includes('Cleaning') && <span className="hud-badge" style={{ color: 'var(--hud-orange)' }}>[RESET PROTOCOL]</span>}
-                      </div>
-                      <div className="hud-block-detail">{b.detail.toUpperCase()}</div>
-                    </div>
+        <div className="hud-panel scrollable" ref={scrollContainerRef}>
+          <div className="hud-panel-label">[{view === 'jobs' ? 'JOB HUNTER' : view === 'github' ? 'GITHUB' : 'OPERATIONS LOG'}]</div>
+          <div className="hud-scroll-content">
+            {view === 'jobs' ? <JobHunterPanel /> : view === 'github' ? <GitHubPanel /> : (schedule?.[view]?.blocks || []).map((b, i) => {
+              const isCurrent = view === now.day && now.totalMinutes >= toMin(b.start) && now.totalMinutes < toMin(b.end);
+              return (
+                <div key={i} ref={isCurrent ? activeBlockRef : null} className={`hud-block ${isCurrent ? 'active' : ''}`}>
+                  <div className="hud-block-time">{b.start} - {b.end}</div>
+                  <div className="hud-block-content" style={{ borderLeftColor: b.label.includes('Cleaning') ? 'var(--hud-orange)' : 'var(--hud-cyan)' }}>
+                    <div className="hud-block-label">{b.icon} {b.label.toUpperCase()} {isCurrent && <span className="hud-badge" style={{ color: 'var(--hud-orange)' }}>[ACTIVE]</span>}</div>
+                    <div className="hud-block-detail">{b.detail.toUpperCase()}</div>
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })}
           </div>
-        )}
+        </div>
 
         {!started && (
           <div className="hud-panel" style={{ textAlign: 'center', padding: '40px' }}>
-            <button className="hud-tab active" onClick={startSession} style={{ fontSize: '18px', padding: '15px 30px' }}>
-              INITIALIZE JARVIS
-            </button>
+            <button className="hud-tab active" onClick={startSession} style={{ fontSize: '18px', padding: '15px 30px' }}>INITIALIZE JARVIS</button>
           </div>
         )}
 
-        {/* REDESIGN MODAL */}
-        {showRedesignModal && (
-          <div style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.85)',
-            zIndex: 3000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '20px'
-          }}>
-            <div className="hud-panel" style={{ maxWidth: '500px', width: '100%', padding: '30px' }}>
-              <div className="hud-panel-label">[SCHEDULE ARCHITECT]</div>
-              <p style={{ fontSize: '12px', marginBottom: '15px' }}>DESCRIBE YOUR NEW ROUTINE OR GOALS:</p>
-              <textarea 
-                value={redesignInstructions}
-                onChange={(e) => setRedesignInstructions(e.target.value)}
-                placeholder="e.g., Focus more on coding in the mornings and move gym to 5 PM..."
-                style={{
-                  width: '100%',
-                  height: '120px',
-                  background: 'rgba(0,207,255,0.05)',
-                  border: '1px solid var(--hud-border)',
-                  color: 'var(--hud-cyan)',
-                  padding: '10px',
-                  fontFamily: 'inherit',
-                  fontSize: '13px',
-                  marginBottom: '20px'
-                }}
-              />
-              <div style={{ display: 'flex', gap: '15px' }}>
-                <button 
-                  onClick={() => handleRedesign()}
-                  disabled={isRedesigning}
-                  style={{
-                    flex: 1,
-                    background: 'var(--hud-cyan)',
-                    color: 'var(--hud-bg)',
-                    border: 'none',
-                    padding: '10px',
-                    fontWeight: 'bold',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {isRedesigning ? 'ARCHITECTING...' : 'APPLY REDESIGN'}
-                </button>
-                <button 
-                  onClick={() => setShowRedesignModal(false)}
-                  style={{
-                    padding: '10px 20px',
-                    background: 'transparent',
-                    border: '1px solid var(--hud-border)',
-                    color: 'white',
-                    cursor: 'pointer'
-                  }}
-                >
-                  CANCEL
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TICKER */}
         <div className="hud-ticker">
           <div className="ticker-scroll">
-            JARVIS v3.7 | SYSTEMS NOMINAL | MONITORING: TEBOGO'S GROWTH PROTOCOL | 
-            STATUS: OPERATIONAL | CURRENT THEME: {todayData.theme.toUpperCase()} | 
+            JARVIS v3.8 | {isAwake ? 'SYSTEMS NOMINAL' : 'STANDBY MODE'} | MONITORING: TEBOGO'S GROWTH PROTOCOL | 
+            STATUS: {isAwake ? 'OPERATIONAL' : 'OFFLINE'} | CURRENT THEME: {todayData.theme.toUpperCase()} | 
             {currentBlock ? ` ACTIVE BLOCK: ${currentBlock.label.toUpperCase()} ` : ' STANDBY MODE '} | 
             {nextBlock ? ` NEXT: ${nextBlock.label.toUpperCase()} AT ${nextBlock.start} ` : ' END OF OPERATIONS '}
           </div>
