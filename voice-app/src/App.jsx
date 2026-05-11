@@ -939,18 +939,21 @@ export default function App() {
     setOrbState("thinking");
     setResponse("THINKING...");
     window.speechSynthesis.cancel();
-    const modelText = await askModel(said, "general");
-    if (modelText) {
-      speak(modelText, startListeningRef.current);
-      return;
+    
+    try {
+      const modelText = await askModel(said, "general");
+      if (modelText) {
+        speak(modelText, startListeningRef.current);
+        return;
+      }
+      throw new Error("Model returned no text");
+    } catch (err) {
+      console.error("JARVIS Model Error:", err);
+      const fallback = currentBlock
+        ? `I'm having trouble connecting to my core intelligence, but I can see you're in the ${currentBlock.label} block. Let me try to re-establish the link.`
+        : `My intelligence core is offline, but I'm still monitoring your schedule. Give me a moment to reset.`;
+      speak(fallback, startListeningRef.current);
     }
-
-    // Local fallback if model is not configured/reachable
-    const shortReply = currentBlock
-      ? `Right now your priority is ${currentBlock.label} until ${currentBlock.end}. Focus on ${currentBlock.detail}. ${nextBlock ? `After that, switch to ${nextBlock.label} at ${nextBlock.start}.` : "After this, close the day with a short review."}`
-      : `You are between blocks. Reset quickly and prepare for ${nextBlock ? `${nextBlock.label} at ${nextBlock.start}` : "your next planned session"}.`;
-
-    speak(shortReply, startListeningRef.current);
   }, [now, todayData, currentBlock, nextBlock, remaining, speak, askModel]); // eslint-disable-line
 
   useEffect(() => {
