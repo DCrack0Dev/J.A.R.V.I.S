@@ -33,17 +33,15 @@ model JobListing {
 }
 
 model JobApplication {
-  id                String      @id @default(uuid()) @db.Uuid
-  listingId         String?     @map("listing_id") @db.Uuid
-  status            String      @default("pending_review")
-  coverLetter       String?     @map("cover_letter")
-  cvSnapshot        Json?       @map("cv_snapshot")
-  appliedAt         DateTime?   @map("applied_at")
-  lastStatusChange  DateTime    @default(now()) @map("last_status_change")
-  notes             String?
-  emailThreadId     String?     @map("email_thread_id")
-  createdAt         DateTime    @default(now()) @map("created_at")
-  listing           JobListing? @relation(fields: [listingId], references: [id])
+  id           String      @id @default(uuid()) @db.Uuid
+  jobListingId String      @unique @map("job_listing_id") @db.Uuid
+  coverLetter  String      @map("cover_letter")
+  status       String      @default("draft")
+  appliedAt    DateTime?   @map("applied_at")
+  notes        String?
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+  listing      JobListing? @relation(fields: [jobListingId], references: [id], onDelete: Cascade)
 
   @@map("job_applications")
 }
