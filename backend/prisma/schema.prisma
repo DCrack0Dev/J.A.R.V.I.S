@@ -9,23 +9,26 @@ datasource db {
 }
 
 model JobListing {
-  id           String           @id @default(uuid()) @db.Uuid
-  externalId   String?          @map("external_id")
-  title        String
-  company      String
-  location     String?
-  isRemote     Boolean          @default(false) @map("is_remote")
-  description  String?
-  url          String
-  source       String
-  stackTags    String[]         @map("stack_tags")
-  salaryRange  String?          @map("salary_range")
-  postedAt     DateTime?        @map("posted_at")
-  scrapedAt    DateTime         @default(now()) @map("scraped_at")
-  isArchived   Boolean          @default(false) @map("is_archived")
+  id          String   @id @default(uuid()) @db.Uuid
+  source      String
+  externalId  String   @map("external_id")
+  title       String
+  company     String
+  location    String?
+  description String?
+  url         String
+  salary      String?
+  postedAt    DateTime? @map("posted_at")
+  matchScore  Int?      @map("match_score")
+  matchReason String?   @map("match_reason")
+  status      String    @default("new")
+  fetchedAt   DateTime  @default(now()) @map("fetched_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
   applications JobApplication[]
 
-  @@unique([externalId, source])
+  @@unique([source, externalId])
   @@map("job_listings")
 }
 
