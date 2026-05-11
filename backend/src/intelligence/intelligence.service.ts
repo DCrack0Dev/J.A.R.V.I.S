@@ -56,40 +56,19 @@ export class RealTimeIntelligenceService {
     if (cached) return JSON.parse(cached);
 
     try {
-      // Using Binance for OHLCV data to calculate RSI
-      const res = await axios.get('https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=4h&limit=20');
-      const closes = res.data.map(k => parseFloat(k[4]));
-      
-      const rsi = this.calculateRSI(closes);
-      
+      // Simplified: Using Binance public ticker for 24h change as a basic signal
+      const res = await axios.get('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT');
       const data = {
         symbol: 'BTCUSDT',
-        rsi: rsi.toFixed(2),
-        signal: rsi < 30 ? 'Oversold' : rsi > 70 ? 'Overbought' : 'Neutral',
-        lastPrice: closes[closes.length - 1],
+        priceChangePercent: res.data.priceChangePercent,
+        lastPrice: res.data.lastPrice,
       };
-      
       await redis.set('intelligence:trading', JSON.stringify(data), 'EX', 120);
       return data;
     } catch (e) {
       this.logger.error(`Trading provider failed: ${e.message}`);
       return null;
     }
-  }
-
-  private calculateRSI(closes: number[]): number {
-    let gains = 0;
-    let losses = 0;
-    for (let i = 1; i < closes.length; i++) {
-      const diff = closes[i] - closes[i - 1];
-      if (diff >= 0) gains += diff;
-      else losses -= diff;
-    }
-    const avgGain = gains / (closes.length - 1);
-    const avgLoss = losses / (closes.length - 1);
-    if (avgLoss === 0) return 100;
-    const rs = avgGain / avgLoss;
-    return 100 - (100 / (1 + rs));
   }
 
   // PROVIDER 4: NEWS
@@ -123,15 +102,15 @@ export class RealTimeIntelligenceService {
     const timestamp = new Date().toLocaleTimeString();
     
     let block = `[LIVE INTELLIGENCE — as of ${timestamp}]\n`;
-    if (crypto && crypto.bitcoin) {
-      block += `- BTC: $${crypto.bitcoin.usd} (${crypto.bitcoin.usd_24h_change?.toFixed(1)}% 24h)\n`;
-      block += `- ETH: $${crypto.ethereum.usd} (${crypto.ethereum.usd_24h_change?.toFixed(1)}% 24h)\n`;
+    if (crypto) {
+      block += `- BTC: $${crypto.bitcoin.usd} (${crypto.bitcoin.usd_24h_change.toFixed(1)}% 24h)\n`;
+      block += `- ETH: $${crypto.ethereum.usd} (${crypto.ethereum.usd_24h_change.toFixed(1)}% 24h)\n`;
     }
     if (cyber && cyber[0]) {
       block += `- Top CVE: ${cyber[0].cveID} — ${cyber[0].vulnerabilityName}\n`;
     }
     if (trading) {
-      block += `- BTC RSI (4h): ${trading.rsi} — ${trading.signal} signal\n`;
+      block += `- BTC/USDT Signal: ${parseFloat(trading.priceChangePercent) > 0 ? 'Bullish' : 'Bearish'} (${trading.priceChangePercent}% 24h)\n`;
     }
     if (news && news[0]) {
       block += `- Top News: "${news[0].title}"\n`;
@@ -141,31 +120,25 @@ export class RealTimeIntelligenceService {
   }
 
   async checkProactiveAlerts(userId: string) {
+    // This would be called by a BullMQ cron job
     const crypto = await this.getCryptoData();
-    if (crypto && crypto.bitcoin && Math.abs(crypto.bitcoin.usd_24h_change) > 5) {
-      await this.saveAndSendAlert(userId, {
+    if (crypto && Math.abs(crypto.bitcoin.usd_24h_change) > 5) {
+      const alert = {
         provider: 'crypto',
         message: `Bitcoin moved ${crypto.bitcoin.usd_24h_change.toFixed(1)}% in the last 24 hours!`,
         severity: 'high',
-      });
-    }
-
-    const trading = await this.getTradingSignals();
-    if (trading && (parseFloat(trading.rsi) < 30 || parseFloat(trading.rsi) > 70)) {
-      await this.saveAndSendAlert(userId, {
-        provider: 'trading',
-        message: `BTC RSI is ${trading.rsi} (${trading.signal}!)`,
-        severity: 'high',
-      });
+      };
+      await this.saveAndSendAlert(userId, alert);
     }
 
     const cyber = await this.getCyberThreats();
     if (cyber && cyber[0]) {
-      await this.saveAndSendAlert(userId, {
+      const alert = {
         provider: 'cyber',
-        message: `New critical vulnerability: ${cyber[0].cveID}`,
-        severity: 'critical', 
-      });
+        message: `New critical vulnerability detected: ${cyber[0].cveID}`,
+        severity: 'critical',
+      };
+      await this.saveAndSendAlert(userId, alert);
     }
   }
 

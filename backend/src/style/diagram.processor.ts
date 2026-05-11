@@ -37,17 +37,18 @@ export class DiagramProcessor extends WorkerHost {
         messages: [{ role: 'user', content: prompt }],
       });
 
-      const mermaidCode = response.choices[0].message.content.trim();
+      const mermaidCode = response.choices[0].message.content?.trim() || '';
       
-      await this.prisma.diagramCache.create({
-        data: {
-          userId,
-          description,
-          mermaidCode,
-        },
-      });
-
-      this.logger.log(`Successfully generated diagram for: ${description}`);
+      if (mermaidCode) {
+        await this.prisma.diagramCache.create({
+          data: {
+            userId,
+            description,
+            mermaidCode,
+          },
+        });
+        this.logger.log(`Successfully generated diagram for: ${description}`);
+      }
       return mermaidCode;
     } catch (error) {
       this.logger.error(`Diagram generation failed: ${error.message}`);

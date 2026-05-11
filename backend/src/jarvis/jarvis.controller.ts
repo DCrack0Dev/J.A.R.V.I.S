@@ -13,6 +13,7 @@ export class JarvisController {
     @Param('sessionId') sessionId: string,
     @Body() body: { userId?: string; query: string }
   ) {
-    return this.jarvisService.processQuery(body.userId, sessionId, body.query);
+    const userId = body.userId || '00000000-0000-0000-0000-000000000001';
+    return this.jarvisService.processQuery(userId, sessionId, body.query);
   }
 }

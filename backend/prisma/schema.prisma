@@ -169,66 +169,6 @@ model ContextSnapshot {
   @@map("context_snapshots")
 }
 
-model UserMemory {
-  id                 String   @id @default(uuid()) @db.Uuid
-  userId             String?  @unique @db.Uuid
-  preferredTone      String?  @map("preferred_tone")
-  responseLength     String?  @map("response_length")
-  topicWeights       Json?    @map("topic_weights")
-  personalityProfile Json?    @map("personality_profile")
-  lastUpdated        DateTime @default(now()) @map("last_updated")
-
-  @@map("user_memories")
-}
-
-// --- NEW MODULE 1: PERMANENT MEMORY ENGINE ---
-
-model MemoryRecord {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String?  @db.Uuid
-  role      String   // user or assistant
-  content   String
-  sessionId String   @map("session_id")
-  timestamp DateTime @default(now())
-
-  @@map("memory_records")
-}
-
-model MemoryIndex {
-  id              String                    @id @default(uuid()) @db.Uuid
-  userId          String?                   @db.Uuid
-  summary         String
-  tags            String[]
-  embedding       Unsupported("vector(1536)")?
-  sourceSessionId String?                   @map("source_session_id")
-  createdAt       DateTime                  @default(now()) @map("created_at")
-
-  @@map("memory_index")
-}
-
-model MemoryCorrection {
-  id            String   @id @default(uuid()) @db.Uuid
-  userId        String?  @db.Uuid
-  originalFact  String   @map("original_fact")
-  correctedFact String   @map("corrected_fact")
-  timestamp     DateTime @default(now())
-
-  @@map("memory_corrections")
-}
-
-// --- NEW MODULE 2: ADAPTIVE LEARNING ---
-
-model ExplanationFeedback {
-  id           String   @id @default(uuid()) @db.Uuid
-  userId       String?  @db.Uuid
-  messageId    String?  @map("message_id")
-  rating       String?  // positive, negative
-  feedbackType String?  @map("feedback_type") // too_long, too_short, need_examples, etc.
-  timestamp    DateTime @default(now())
-
-  @@map("explanation_feedback")
-}
-
 model DiagramCache {
   id          String   @id @default(uuid()) @db.Uuid
   userId      String?  @db.Uuid
@@ -272,48 +212,5 @@ model NewsCache {
   fetchedAt DateTime @default(now()) @map("fetched_at")
 
   @@map("news_cache")
-}
-
-// --- NEW MODULE 4: WAKE WORD & SESSION PERSISTENCE ---
-
-enum SessionStatus {
-  DORMANT
-  ACTIVE
-}
-
-model JarvisSession {
-  id            String        @id @default(uuid()) @db.Uuid
-  userId        String?       @db.Uuid
-  status        SessionStatus @default(DORMANT)
-  lastActiveAt  DateTime?     @map("last_active_at")
-  lastSleptAt   DateTime?     @map("last_slept_at")
-  totalSessions Int           @default(0) @map("total_sessions")
-  createdAt     DateTime      @default(now()) @map("created_at")
-
-  @@map("jarvis_sessions")
-}
-
-model UserAudioSettings {
-  id               String   @id @default(uuid()) @db.Uuid
-  userId           String   @unique @db.Uuid
-  wakeWordEnabled  Boolean  @default(false) @map("wake_word_enabled")
-  panicMuteActive  Boolean  @default(false) @map("panic_mute_active")
-  consentGivenAt   DateTime? @map("consent_given_at")
-  updatedAt        DateTime @default(now()) @map("updated_at")
-
-  @@map("user_audio_settings")
-}
-
-model ToolCall {
-  id             String   @id @default(uuid()) @db.Uuid
-  userId         String?  @db.Uuid
-  messageId      String?  @map("message_id")
-  toolName       String   @map("tool_name")
-  cacheHit       Boolean  @map("cache_hit")
-  responseTimeMs Int      @map("response_time_ms")
-  status         String   @default("SUCCESS") // SUCCESS, FAILED
-  timestamp      DateTime @default(now())
-
-  @@map("tool_calls")
 }
 

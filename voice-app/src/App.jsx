@@ -2,27 +2,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import JobHunterPanel from './components/JobHunterPanel';
 import GitHubPanel from './components/GitHubPanel';
 import ContextBar from './components/ContextBar';
-import FeedbackBar from './components/FeedbackBar';
-import LearningDashboard from './components/LearningDashboard';
-import LiveIntelligencePanel from './components/LiveIntelligencePanel';
-import DiagramRenderer from './components/DiagramRenderer';
-import MemoryVault from './components/MemoryVault';
-import PrivacyIndicator from './components/PrivacyIndicator';
-import ConsentGuard from './components/ConsentGuard';
-import SessionResumeToast from './components/SessionResumeToast';
-import LiveDataBadge from './components/LiveDataBadge';
-import DataSourceStatus from './components/DataSourceStatus';
-import { io } from 'socket.io-client';
 
-import { useVoiceStore } from './store/voiceStore';
-import playChime from './utils/chimes';
-import { PorcupineWorker } from '@picovoice/porcupine-web';
-
-const SESSION_ID = crypto.randomUUID(); // Unique for this session
-const USER_ID = '00000000-0000-0000-0000-000000000001'; // Default owner ID
-const PICOVOICE_ACCESS_KEY = import.meta.env.VITE_PICOVOICE_ACCESS_KEY || "${YOUR_ACCESS_KEY}"; 
-
-// ... (SCHEDULE remains unchanged)
+const SESSION_ID = crypto.randomUUID();
 const SCHEDULE = {
   mon: {
     theme: "Networking & Market Structure",
@@ -240,19 +221,12 @@ body::before {
   max-width: 1100px;
   height: 100vh;
   margin: 0 auto;
-  padding: 10px;
+  padding: 20px;
   position: relative;
   z-index: 10;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-
-@media (min-width: 768px) {
-  .shell {
-    padding: 20px;
-    gap: 15px;
-  }
+  gap: 15px;
 }
 
 /* HEADER HUD */
@@ -267,45 +241,25 @@ body::before {
 
 .hud-title-wrap h1 {
   font-family: 'Orbitron', sans-serif;
-  font-size: 18px;
-  letter-spacing: 2px;
+  font-size: 24px;
+  letter-spacing: 4px;
   color: var(--hud-cyan);
   text-shadow: var(--hud-glow);
 }
 
-@media (min-width: 768px) {
-  .hud-title-wrap h1 {
-    font-size: 24px;
-    letter-spacing: 4px;
-  }
-}
-
 .hud-subtitle {
-  font-size: 7px;
-  letter-spacing: 0.5px;
+  font-size: 8px;
+  letter-spacing: 1px;
   color: var(--hud-orange);
   margin-top: 2px;
 }
 
-@media (min-width: 768px) {
-  .hud-subtitle {
-    font-size: 8px;
-    letter-spacing: 1px;
-  }
-}
-
 .system-status {
-  display: none;
+  display: flex;
   align-items: center;
   gap: 8px;
   font-size: 9px;
   letter-spacing: 1px;
-}
-
-@media (min-width: 768px) {
-  .system-status {
-    display: flex;
-  }
 }
 
 .status-dot {
@@ -321,16 +275,9 @@ body::before {
 
 /* ARC REACTOR */
 .arc-reactor {
-  width: 40px;
-  height: 40px;
+  width: 50px;
+  height: 50px;
   position: relative;
-}
-
-@media (min-width: 768px) {
-  .arc-reactor {
-    width: 50px;
-    height: 50px;
-  }
 }
 
 .arc-ring {
@@ -343,31 +290,19 @@ body::before {
 
 .arc-ring-inner {
   position: absolute;
-  inset: 6px;
+  inset: 8px;
   border: 1px solid var(--hud-cyan);
   border-radius: 50%;
   box-shadow: inset 0 0 10px var(--hud-cyan), 0 0 10px var(--hud-cyan);
   animation: spin 5s linear infinite reverse;
 }
 
-@media (min-width: 768px) {
-  .arc-ring-inner {
-    inset: 8px;
-  }
-}
-
 .arc-core {
   position: absolute;
-  inset: 14px;
+  inset: 18px;
   background: var(--hud-cyan);
   border-radius: 50%;
   box-shadow: 0 0 15px var(--hud-cyan);
-}
-
-@media (min-width: 768px) {
-  .arc-core {
-    inset: 18px;
-  }
 }
 
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
@@ -375,38 +310,23 @@ body::before {
 /* DAY TABS HUD */
 .hud-tabs {
   display: flex;
-  gap: 4px;
+  gap: 8px;
   flex-shrink: 0;
   border-bottom: 1px solid var(--hud-border);
   padding-bottom: 10px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.hud-tabs::-webkit-scrollbar {
-  display: none;
 }
 
 .hud-tab {
-  padding: 4px 8px;
+  padding: 6px 12px;
   border: 1px solid var(--hud-border);
   background: transparent;
   color: var(--hud-cyan);
   font-family: 'Orbitron', sans-serif;
-  font-size: 8px;
-  letter-spacing: 0.5px;
+  font-size: 10px;
+  letter-spacing: 1px;
   text-transform: uppercase;
   transition: all 0.3s;
   cursor: pointer;
-  white-space: nowrap;
-}
-
-@media (min-width: 768px) {
-  .hud-tab {
-    padding: 6px 12px;
-    font-size: 10px;
-    letter-spacing: 1px;
-  }
 }
 
 .hud-tab.active {
@@ -419,15 +339,9 @@ body::before {
 .hud-panel {
   background: var(--hud-surface);
   border: 1px solid var(--hud-border);
-  padding: 10px;
+  padding: 15px;
   position: relative;
   transition: all 0.3s;
-}
-
-@media (min-width: 768px) {
-  .hud-panel {
-    padding: 15px;
-  }
 }
 
 .hud-panel.scrollable {
@@ -463,19 +377,11 @@ body::before {
   top: -8px;
   left: 10px;
   background: var(--hud-bg);
-  padding: 0 4px;
-  font-size: 7px;
-  letter-spacing: 1px;
+  padding: 0 6px;
+  font-size: 8px;
+  letter-spacing: 2px;
   color: var(--hud-orange);
   z-index: 5;
-}
-
-@media (min-width: 768px) {
-  .hud-panel-label {
-    padding: 0 6px;
-    font-size: 8px;
-    letter-spacing: 2px;
-  }
 }
 
 /* CLOCK HUD */
@@ -486,16 +392,9 @@ body::before {
 
 .hud-clock {
   font-family: 'Orbitron', sans-serif;
-  font-size: 28px;
-  letter-spacing: 4px;
+  font-size: 42px;
+  letter-spacing: 6px;
   line-height: 1;
-}
-
-@media (min-width: 768px) {
-  .hud-clock {
-    font-size: 42px;
-    letter-spacing: 6px;
-  }
 }
 
 /* ORB HUD */
@@ -506,8 +405,8 @@ body::before {
 }
 
 .hud-orb {
-  width: 60px;
-  height: 60px;
+  width: 80px;
+  height: 80px;
   border: 2px solid var(--hud-border);
   border-radius: 50%;
   display: flex;
@@ -516,13 +415,6 @@ body::before {
   position: relative;
   transition: all 0.4s;
   cursor: pointer;
-}
-
-@media (min-width: 768px) {
-  .hud-orb {
-    width: 80px;
-    height: 80px;
-  }
 }
 
 .hud-orb.listening { border-color: var(--hud-cyan); box-shadow: var(--hud-glow); }
@@ -534,71 +426,38 @@ body::before {
 /* SCHEDULE BLOCKS */
 .hud-block {
   display: grid;
-  grid-template-columns: 70px 1fr;
+  grid-template-columns: 90px 1fr;
   border: 1px solid var(--hud-border);
   margin-bottom: 4px;
   background: rgba(0, 0, 0, 0.4);
   flex-shrink: 0;
 }
 
-@media (min-width: 768px) {
-  .hud-block {
-    grid-template-columns: 90px 1fr;
-  }
-}
-
 .hud-block-time {
-  padding: 6px;
+  padding: 8px;
   border-right: 1px solid var(--hud-border);
-  font-size: 8px;
+  font-size: 9px;
   color: rgba(0, 207, 255, 0.6);
   display: flex;
   align-items: center;
 }
 
-@media (min-width: 768px) {
-  .hud-block-time {
-    padding: 8px;
-    font-size: 9px;
-  }
-}
-
 .hud-block-content {
-  padding: 6px 10px;
+  padding: 8px 12px;
   border-left: 3px solid var(--hud-cyan);
-}
-
-@media (min-width: 768px) {
-  .hud-block-content {
-    padding: 8px 12px;
-  }
 }
 
 .hud-block-label {
   font-family: 'Orbitron', sans-serif;
-  font-size: 10px;
-  letter-spacing: 0.5px;
+  font-size: 11px;
+  letter-spacing: 1px;
   margin-bottom: 2px;
 }
 
-@media (min-width: 768px) {
-  .hud-block-label {
-    font-size: 11px;
-    letter-spacing: 1px;
-  }
-}
-
 .hud-block-detail {
-  font-size: 8px;
+  font-size: 9px;
   opacity: 0.7;
-  line-height: 1.2;
-}
-
-@media (min-width: 768px) {
-  .hud-block-detail {
-    font-size: 9px;
-    line-height: 1.3;
-  }
+  line-height: 1.3;
 }
 
 .hud-block.active {
@@ -651,24 +510,11 @@ const MODEL_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY;
 const MODEL_NAME = import.meta.env.VITE_OPENROUTER_MODEL || "openai/gpt-4o-mini";
 
 export default function App() {
-  const { 
-    state: voiceState, 
-    setState: setVoiceState, 
-    wake, 
-    sleep, 
-    setSpeaking, 
-    setDoneSpeaking,
-    setSessionData,
-    isPanicMute,
-    isWakeWordEnabled 
-  } = useVoiceStore();
-
   const [schedule, setSchedule] = useState(null);
-  const [orbState, setOrbState] = useState("idle"); // Legacy state, will sync with voiceState
+  const [orbState, setOrbState] = useState("idle");
   const [started, setStarted] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [response, setResponse] = useState("");
-  const [lastResponseData, setLastResponseData] = useState(null);
   const [currentWordIndex, setCurrentWordIndex] = useState(-1);
   const [context, setContext] = useState(null);
   const [history, setHistory] = useState([]);
@@ -677,8 +523,6 @@ export default function App() {
   const [isRedesigning, setIsRedesigning] = useState(false);
   const [redesignInstructions, setRedesignInstructions] = useState("");
   const [showRedesignModal, setShowRedesignModal] = useState(false);
-  const [alerts, setAlerts] = useState([]);
-  const [resumeMessage, setResumeMessage] = useState("");
 
   const recognitionRef = useRef(null);
   const activeBlockRef = useRef(null);
@@ -688,104 +532,6 @@ export default function App() {
   const welcomedRef = useRef(false);
   const orbStateRef = useRef("idle");
   const startedRef = useRef(false);
-  const socketRef = useRef(null);
-  const porcupineRef = useRef(null);
-
-  // Sync orbState with voiceState
-  useEffect(() => {
-    console.log("Voice State Changed:", voiceState);
-    if (voiceState === 'DORMANT') setOrbState('idle');
-    else if (voiceState === 'ACTIVE') {
-      setOrbState('listening');
-      // Ensure STT starts when moving to ACTIVE
-      setTimeout(() => startListeningRef.current(), 500);
-    }
-    else if (voiceState === 'SPEAKING') setOrbState('speaking');
-    orbStateRef.current = orbState;
-  }, [voiceState]);
-
-  // Wake Word Integration
-  useEffect(() => {
-    if (isWakeWordEnabled && !isPanicMute && !porcupineRef.current) {
-      if (PICOVOICE_ACCESS_KEY.includes("{")) {
-        console.warn("Picovoice Access Key not set. Wake word will not work.");
-        return;
-      }
-      const initPorcupine = async () => {
-        try {
-          console.log("Initializing Porcupine...");
-          porcupineRef.current = await PorcupineWorker.create(
-            PICOVOICE_ACCESS_KEY,
-            { builtin: 'Jarvis' },
-            (detection) => {
-              if (detection.label === 'Jarvis' && useVoiceStore.getState().state === 'DORMANT') {
-                console.log("Wake word detected!");
-                handleWake();
-              }
-            }
-          );
-          console.log("Porcupine ready.");
-        } catch (e) {
-          console.error("Porcupine failed to initialize", e);
-        }
-      };
-      initPorcupine();
-    }
-
-    return () => {
-      if (porcupineRef.current) {
-        porcupineRef.current.terminate();
-        porcupineRef.current = null;
-      }
-    };
-  }, [isWakeWordEnabled, isPanicMute]); // Removed voiceState dependency to prevent re-init on state change
-
-  const handleWake = useCallback(() => {
-    if (isPanicMute) return;
-    console.log("Waking JARVIS...");
-    playChime('wake');
-    wake(socketRef.current, USER_ID, SESSION_ID);
-    speak("I'm here.", () => {
-      console.log("Wake speech done, starting STT...");
-      startListening();
-    });
-  }, [isPanicMute, wake, startListening]);
-
-  const handleSleep = useCallback(() => {
-    playChime('sleep');
-    sleep(socketRef.current, USER_ID, SESSION_ID, history, context);
-    speak("Resting. Say Jarvis when you need me.", () => {
-      // Transition to dormant after TTS finishes
-      setVoiceState('DORMANT');
-    });
-  }, [sleep, history, context, setVoiceState]);
-
-  // Initialize WebSocket
-  useEffect(() => {
-    const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
-    const socket = io(baseUrl);
-    socketRef.current = socket;
-
-    socket.on('jarvis-stream', (chunk) => {
-      setResponse(prev => prev + chunk);
-    });
-
-    socket.on('jarvis:session_restored', (data) => {
-      setSessionData(data);
-      if (data.reorientation) {
-        setResumeMessage(`WELCOME BACK. ${data.reorientation}`);
-      }
-    });
-
-    socket.on('proactive-alert', (alert) => {
-      setAlerts(prev => [alert, ...prev]);
-      if (alert.severity === 'critical' && voiceState !== 'DORMANT') {
-        speak(`Attention: ${alert.message}`, startListeningRef.current);
-      }
-    });
-
-    return () => socket.disconnect();
-  }, [voiceState, setSessionData]);
 
   // Use refs for callbacks to break circular dependencies
   const handleSpeechRef = useRef(null);
@@ -875,8 +621,9 @@ export default function App() {
     
     // Set refs immediately
     speakingRef.current = true;
-    setVoiceState('SPEAKING');
+    orbStateRef.current = "speaking";
     
+    setOrbState("speaking");
     setResponse(text);
     setCurrentWordIndex(-1);
 
@@ -885,6 +632,7 @@ export default function App() {
     
     u.onboundary = (event) => {
       if (event.name === 'word') {
+        // Estimate word index based on character offset
         const spokenPart = text.substring(0, event.charIndex);
         const words = spokenPart.trim().split(/\s+/);
         setCurrentWordIndex(spokenPart.trim() === "" ? 0 : words.length);
@@ -903,10 +651,12 @@ export default function App() {
     };
     u.onend = () => {
       speakingRef.current = false;
-      setVoiceState('ACTIVE');
+      orbStateRef.current = "listening";
+      setOrbState("listening");
       
+      // Force a restart after a tiny delay to let hardware clear
       setTimeout(() => {
-        if (startedRef.current && !speakingRef.current && voiceState === 'ACTIVE') {
+        if (startedRef.current && !speakingRef.current) {
           startListeningRef.current();
         }
       }, 200);
@@ -914,20 +664,20 @@ export default function App() {
     };
     u.onerror = () => {
       speakingRef.current = false;
-      setVoiceState('ACTIVE');
+      orbStateRef.current = "listening";
+      setOrbState("listening");
       setTimeout(() => {
-        if (startedRef.current && !speakingRef.current && voiceState === 'ACTIVE') {
+        if (startedRef.current && !speakingRef.current) {
           startListeningRef.current();
         }
       }, 200);
       onDone && onDone();
     };
     window.speechSynthesis.speak(u);
-  }, [voiceState, setVoiceState]);
+  }, []);
 
   const askModel = useCallback(async (said, intent = "general") => {
     try {
-      setResponse(""); // Clear previous response for streaming
       const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
       const res = await fetch(`${baseUrl}/api/jarvis/query/${SESSION_ID}`, {
         method: "POST",
@@ -936,18 +686,13 @@ export default function App() {
         },
         body: JSON.stringify({
           query: said,
-          userId: USER_ID
+          userId: '00000000-0000-0000-0000-000000000001' // Default for now
         }),
       });
 
       if (!res.ok) return null;
       const data = await res.json();
       const reply = data.reply;
-      
-      setLastResponseData(data);
-      
-      // We still get the full reply at the end of the POST for non-streaming fallback
-      // or to trigger the final speech.
       
       if (data.analysis) {
         setContext(data.analysis);
@@ -962,38 +707,28 @@ export default function App() {
     }
   }, [history]);
 
+  // ── Speech recognition ────────────────────────────────────
   const startListening = useCallback(() => {
-    const currentState = useVoiceStore.getState().state;
-    // Check REFS and voiceState
-    if (listeningRef.current || speakingRef.current || orbStateRef.current === "speaking" || orbStateRef.current === "thinking" || currentState !== 'ACTIVE') {
-      console.log("STT skip:", { listening: listeningRef.current, speaking: speakingRef.current, state: currentState });
-      return;
-    }
+    // Check REFS, not state, to avoid closure staleness
+    if (listeningRef.current || speakingRef.current || orbStateRef.current === "speaking" || orbStateRef.current === "thinking") return;
 
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) {
-      console.error("Speech Recognition not supported in this browser.");
-      return;
-    }
+    if (!SR) return;
 
     if (recognitionRef.current) {
       try { recognitionRef.current.abort(); } catch(_) {}
     }
 
-    console.log("Starting STT...");
     const rec = new SR();
-    rec.continuous = false; // Changed to false for better mobile/browser compatibility
+    rec.continuous = true;
     rec.interimResults = true;
     rec.lang = "en-US";
     recognitionRef.current = rec;
     listeningRef.current = true;
     setOrbState("listening");
 
-    rec.onstart = () => {
-      console.log("STT active and hearing.");
-    };
-
     rec.onresult = (e) => {
+      // Immediate guard: if we started speaking while a result was processing, ignore it
       if (speakingRef.current) return;
 
       let said = "";
@@ -1001,57 +736,63 @@ export default function App() {
         if (e.results[i].isFinal) {
           said += ` ${e.results[i][0].transcript}`;
         } else {
+          // Update transcript in real-time so user knows Jarvis is hearing them
           setTranscript(e.results[i][0].transcript.toLowerCase().trim());
         }
       }
       said = said.toLowerCase().trim();
       if (!said || said.length < 2) return;
 
-      console.log("User said:", said);
       setTranscript(said);
+      
+      // STOP recognition immediately before handling the speech
+      try {
+        rec.onend = null;
+        rec.stop();
+      } catch (_) {}
       
       listeningRef.current = false;
       if (handleSpeechRef.current) handleSpeechRef.current(said);
+
+      // Send to context engine for analysis
+      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      fetch(`${baseUrl}/api/context/session/${SESSION_ID}/message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ role: 'user', content: said })
+      })
+      .then(res => res.json())
+      .then(analysis => {
+        if (analysis) setContext(analysis);
+      })
+      .catch(console.error);
     };
 
     rec.onerror = (event) => {
-      console.error("STT Error:", event.error);
       listeningRef.current = false;
-      
-      if (event.error === 'no-speech') {
-        if (!speakingRef.current && startedRef.current && useVoiceStore.getState().state === 'ACTIVE') {
-          setTimeout(() => startListening(), 100);
-        }
-        return;
-      }
-
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') return;
       
-      if (!speakingRef.current && startedRef.current && useVoiceStore.getState().state === 'ACTIVE') {
-        setTimeout(() => startListening(), 1000);
+      // Only retry if we aren't currently speaking
+      if (!speakingRef.current && startedRef.current) {
+        setTimeout(() => startListeningRef.current && startListeningRef.current(), 1000);
       }
     };
 
     rec.onend = () => {
-      console.log("STT ended.");
       listeningRef.current = false;
       recognitionRef.current = null;
-      if (!speakingRef.current && orbStateRef.current !== "thinking" && startedRef.current && useVoiceStore.getState().state === 'ACTIVE') {
+      // Crucial: Only restart if we are not speaking, not thinking, and still in the "started" state
+      if (!speakingRef.current && orbStateRef.current !== "thinking" && startedRef.current) {
         setTimeout(() => {
-          if (!speakingRef.current && startedRef.current && useVoiceStore.getState().state === 'ACTIVE') {
-            startListening();
+          if (!speakingRef.current && startedRef.current) {
+            startListeningRef.current();
           }
-        }, 100);
+        }, 300);
       }
     };
 
-    try { 
-      rec.start(); 
-    } catch (e) { 
-      console.error("STT start failed:", e);
-      listeningRef.current = false;
-    }
-  }, []); 
+    try { rec.start(); } catch (e) { }
+  }, []); // NO dependencies here — we use REFS for everything inside
 
   useEffect(() => {
     startListeningRef.current = startListening;
@@ -1097,23 +838,6 @@ export default function App() {
       try { recognitionRef.current.stop(); } catch(_) {}
       listeningRef.current = false;
     }
-
-    // SLEEP WORD DETECTOR
-    const sleepQ = /rest my friend/i.test(said);
-    if (sleepQ) {
-      // Check if "rest my friend" is the main command (not buried in other words)
-      const words = said.split(/\s+/);
-      const sleepIndex = words.findIndex(w => w.toLowerCase() === 'rest');
-      if (sleepIndex !== -1 && words.slice(sleepIndex).join(' ').toLowerCase().startsWith('rest my friend')) {
-        // If there are many words after "rest my friend", it might be an accidental trigger
-        const wordsAfter = words.length - (sleepIndex + 3);
-        if (wordsAfter <= 2) {
-          handleSleep();
-          return;
-        }
-      }
-    }
-
     // Schedule / time queries — answer locally, no API needed
     const timeQ = /what time|time is it/i.test(said);
     const motivateQ = /motivat|hype|pump|encourage|inspire/i.test(said);
@@ -1129,12 +853,12 @@ export default function App() {
     const showGithubQ = /show.*github|view.*github|check.*github/i.test(said);
 
     if (timeQ) {
-      speak(`It is ${pad(now.h)}:${pad(now.m)}.`);
+      speak(`It is ${pad(now.h)}:${pad(now.m)}.`, startListeningRef.current);
       return;
     }
 
     if (syncGithubQ) {
-      speak("Syncing your GitHub profile and repositories. I'll notify you when complete.");
+      speak("Syncing your GitHub profile and repositories. I'll notify you when complete.", startListeningRef.current);
       const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
       fetch(`${baseUrl}/api/github/sync`, { method: 'POST' }).catch(console.error);
       return;
@@ -1145,14 +869,14 @@ export default function App() {
       fetch(`${baseUrl}/api/github/summary`)
         .then(res => res.json())
         .then(data => {
-          speak(data.summary);
+          speak(data.summary, startListeningRef.current);
         });
       return;
     }
 
     if (showGithubQ) {
       setView('github');
-      speak("Switching to GitHub Intelligence module. Here is your current profile and repository status.");
+      speak("Switching to GitHub Intelligence module. Here is your current profile and repository status.", startListeningRef.current);
       return;
     }
 
@@ -1163,7 +887,7 @@ export default function App() {
 
     if (jobsQ) {
       setView('jobs');
-      speak("Understood. Initiating job search across LinkedIn, PNet, and Careers24. I'll update the board as I find matching roles.");
+      speak("Understood. Initiating job search across LinkedIn, PNet, and Careers24. I'll update the board as I find matching roles.", startListeningRef.current);
       // Trigger backend scan
       const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
       fetch(`${baseUrl}/api/jobs/scan`, { method: 'POST' }).catch(console.error);
@@ -1172,7 +896,7 @@ export default function App() {
 
     if (showJobsQ) {
       setView('jobs');
-      speak("Switching to Job Hunter module. Here are the latest opportunities we've found.");
+      speak("Switching to Job Hunter module. Here are the latest opportunities we've found.", startListeningRef.current);
       return;
     }
 
@@ -1185,7 +909,7 @@ export default function App() {
       const modelIntent = strategyQ ? "strategy" : dayOverviewQ ? "day_overview" : "motivation";
       const modelText = await askModel(said, modelIntent);
       if (modelText) {
-        speak(modelText);
+        speak(modelText, startListeningRef.current);
         return;
       }
     }
@@ -1198,7 +922,7 @@ export default function App() {
       } else {
         msg += `You are between blocks right now. `;
       }
-      speak(msg);
+      speak(msg, startListeningRef.current);
       return;
     }
 
@@ -1206,7 +930,7 @@ export default function App() {
       const msg = nextBlock
         ? `Up next is ${nextBlock.label} at ${nextBlock.start}. ${nextBlock.detail}.`
         : `No more planned blocks today. Close out with review and recovery.`;
-      speak(msg);
+      speak(msg, startListeningRef.current);
       return;
     }
 
@@ -1217,7 +941,7 @@ export default function App() {
     window.speechSynthesis.cancel();
     const modelText = await askModel(said, "general");
     if (modelText) {
-      speak(modelText);
+      speak(modelText, startListeningRef.current);
       return;
     }
 
@@ -1226,8 +950,8 @@ export default function App() {
       ? `Right now your priority is ${currentBlock.label} until ${currentBlock.end}. Focus on ${currentBlock.detail}. ${nextBlock ? `After that, switch to ${nextBlock.label} at ${nextBlock.start}.` : "After this, close the day with a short review."}`
       : `You are between blocks. Reset quickly and prepare for ${nextBlock ? `${nextBlock.label} at ${nextBlock.start}` : "your next planned session"}.`;
 
-    speak(shortReply);
-  }, [now, todayData, currentBlock, nextBlock, remaining, speak, askModel, handleSleep, startListening]); // eslint-disable-line
+    speak(shortReply, startListeningRef.current);
+  }, [now, todayData, currentBlock, nextBlock, remaining, speak, askModel]); // eslint-disable-line
 
   useEffect(() => {
     handleSpeechRef.current = handleSpeech;
@@ -1252,26 +976,26 @@ export default function App() {
     }
     welcome += `I'm listening. Just talk to me.`;
 
-    speak(welcome);
+    speak(welcome, startListeningRef.current);
     welcomedRef.current = true;
   }, [currentBlock, remaining, speak]);
 
   // Orb icon
-  const orbIcon = voiceState === "DORMANT" ? "🎙️"
-    : voiceState === "ACTIVE" ? "👂"
+  const orbIcon = orbState === "idle" ? "🎙️"
+    : orbState === "listening" ? "👂"
     : orbState === "thinking" ? "🧠"
     : "🔊";
+
+  const waveClass = orbState === "speaking" ? "gold-wave"
+    : orbState === "thinking" ? "purple-wave"
+    : "";
 
   return (
     <>
       <style>{css}</style>
       <div className="scanlines" />
-      <ConsentGuard />
-      <PrivacyIndicator />
-      <SessionResumeToast message={resumeMessage} />
       
       <div className="shell">
-        <LiveIntelligencePanel />
         {/* HEADER */}
         <header className="hud-header">
           <div className="hud-title-wrap">
@@ -1307,20 +1031,11 @@ export default function App() {
             <div>[03] NO PHONE SCROLLING DURING TRANSITIONS</div>
             <div>[04] 5-MINUTE REFLECTION POST-BLOCK</div>
           </div>
-          <DataSourceStatus />
         </div>
 
         {/* ORB HUD */}
         <div className="hud-orb-wrap">
-          <div 
-            className={`hud-orb ${orbState}`} 
-            onClick={() => {
-              if (!started) startSession();
-              else if (voiceState === 'DORMANT') handleWake();
-              else if (voiceState === 'ACTIVE') handleSleep();
-            }}
-            title={voiceState === 'DORMANT' ? 'Sleeping — say Jarvis to wake' : voiceState === 'ACTIVE' ? 'Listening' : 'Jarvis is speaking'}
-          >
+          <div className={`hud-orb ${orbState}`} onClick={!started ? startSession : undefined}>
             <div style={{ fontSize: '30px' }}>{orbIcon}</div>
           </div>
         </div>
@@ -1403,14 +1118,6 @@ export default function App() {
                      {word.toUpperCase()}{' '}
                    </span>
                  ))}
-                 {response.includes('[DIAGRAM:') && (
-                   <DiagramRenderer 
-                     description={response.match(/\[DIAGRAM:\s*(.+?)\]/)?.[1]} 
-                     code={context?.mermaidCode} // We'll need the backend to send this or fetch it
-                   />
-                 )}
-                 <LiveDataBadge intents={lastResponseData?.intents} toolResults={lastResponseData?.toolResults} />
-                 <FeedbackBar messageId={Date.now().toString()} topic={context?.intentLabel} />
                </div>
              )}
             {!transcript && !response && <div style={{ opacity: 0.4 }}>AWAITING INPUT...</div>}
@@ -1458,18 +1165,6 @@ export default function App() {
           >
             GITHUB
           </button>
-          <button 
-            className={`hud-tab ${view === 'learning' ? 'active' : ''}`}
-            onClick={() => setView('learning')}
-          >
-            LEARNING
-          </button>
-          <button 
-            className={`hud-tab ${view === 'memory' ? 'active' : ''}`}
-            onClick={() => setView('memory')}
-          >
-            MEMORY
-          </button>
         </div>
 
         {view === 'jobs' ? (
@@ -1484,20 +1179,6 @@ export default function App() {
             <div className="hud-panel-label">[GITHUB INTELLIGENCE]</div>
             <div className="hud-scroll-content">
               <GitHubPanel />
-            </div>
-          </div>
-        ) : view === 'learning' ? (
-          <div className="hud-panel scrollable">
-            <div className="hud-panel-label">[PERSONALIZED LEARNING SYSTEM]</div>
-            <div className="hud-scroll-content">
-              <LearningDashboard />
-            </div>
-          </div>
-        ) : view === 'memory' ? (
-          <div className="hud-panel scrollable">
-            <div className="hud-panel-label">[MEMORY VAULT]</div>
-            <div className="hud-scroll-content">
-              <MemoryVault userId={USER_ID} />
             </div>
           </div>
         ) : (
