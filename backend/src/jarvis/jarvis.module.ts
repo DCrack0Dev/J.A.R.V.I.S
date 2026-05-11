@@ -5,6 +5,7 @@ import { ContextModule } from '../context/context.module';
 import { RealTimeModule } from '../realtime/realtime.module';
 import { StyleModule } from '../style/style.module';
 import { IntelligenceModule } from '../intelligence/intelligence.module';
+import { ScheduleModule } from '../schedule/schedule.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { IntelligenceModule } from '../intelligence/intelligence.module';
     RealTimeModule, 
     StyleModule, 
     IntelligenceModule,
+    ScheduleModule,
   ],
   controllers: [JarvisController],
   providers: [JarvisService],
