@@ -119,4 +119,73 @@ export class ScheduleService {
       await this.updateSchedule(day, (data as any).theme, (data as any).blocks);
     }
   }
+
+  async editSchedule(command: string, currentSchedule: any, targetDay: string) {
+    const prompt = `
+      You are editing a daily schedule based on a user command. 
+      
+      Current ${targetDay} schedule: ${JSON.stringify(currentSchedule)} 
+      
+      User command: ${command} 
+      
+      Rules: 
+      - Preserve all blocks not mentioned in the command 
+      - Keep total day coverage sensible (no overlaps, no gaps > 30 min) 
+      - If adding a block, fit it without destroying the whole day 
+      - If user says 'redesign today' or 'restructure', rebuild the whole day intelligently based on the existing block themes 
+      - Respect typical human needs: sleep, meals, breaks 
+      
+      Return ONLY valid JSON in this exact format: 
+      { 
+        "updatedSchedule": { "theme": "...", "blocks": [{ "start": "HH:MM", "end": "HH:MM", "icon": "...", "label": "...", "detail": "..." }] }, 
+        "summary": "One sentence describing what changed", 
+        "changes": ["change 1", "change 2"] 
+      }
+    `;
+
+    try {
+      const response = await axios.post(
+        this.openRouterUrl,
+        {
+          model: 'openai/gpt-4o',
+          messages: [{ role: 'user', content: prompt }],
+          response_format: { type: 'json_object' }
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${this.apiKey}`,
+            'HTTP-Referer': 'http://localhost:3000',
+            'X-Title': 'Jarvis Schedule Editor',
+          },
+        },
+      );
+
+      const result = JSON.parse(response.data.choices[0].message.content);
+      
+      // Save updated schedule to DB
+      await this.updateSchedule(targetDay, result.updatedSchedule.theme, result.updatedSchedule.blocks);
+
+      return result;
+    } catch (error) {
+      this.logger.error(`AI Schedule Edit failed: ${error.message}`);
+      throw new Error('Failed to edit schedule');
+    }
+  }
+
+  async resetSchedule(day: string) {
+    // Default schedule for reset (could be moved to a config file)
+    const defaults: Record<string, any> = {
+      mon: { theme: 'Productivity', blocks: [{ start: '08:00', end: '09:00', icon: '☕', label: 'Morning Prep', detail: 'Planning and coffee' }] },
+      tue: { theme: 'Deep Work', blocks: [{ start: '08:00', end: '09:00', icon: '☕', label: 'Morning Prep', detail: 'Planning and coffee' }] },
+      wed: { theme: 'Deep Work', blocks: [{ start: '08:00', end: '09:00', icon: '☕', label: 'Morning Prep', detail: 'Planning and coffee' }] },
+      thu: { theme: 'Deep Work', blocks: [{ start: '08:00', end: '09:00', icon: '☕', label: 'Morning Prep', detail: 'Planning and coffee' }] },
+      fri: { theme: 'Collaboration', blocks: [{ start: '08:00', end: '09:00', icon: '☕', label: 'Morning Prep', detail: 'Planning and coffee' }] },
+      sat: { theme: 'Rest & Play', blocks: [{ start: '09:00', end: '10:00', icon: '🍳', label: 'Brunch', detail: 'Relaxed start' }] },
+      sun: { theme: 'Planning & Rest', blocks: [{ start: '09:00', end: '10:00', icon: '🍳', label: 'Brunch', detail: 'Relaxed start' }] },
+    };
+
+    const defaultData = defaults[day] || defaults['mon'];
+    await this.updateSchedule(day, defaultData.theme, defaultData.blocks);
+    return { updatedSchedule: defaultData, summary: `Reset ${day} to default.` };
+  }
 }
