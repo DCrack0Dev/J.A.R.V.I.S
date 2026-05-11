@@ -45,23 +45,22 @@ model JobApplication {
   @@map("job_applications")
 }
 
-model UserProfile {
-  id           String   @id @default(uuid()) @db.Uuid
-  fullName     String?  @map("full_name")
-  email        String?
-  phone        String?
-  location     String?
-  linkedinUrl  String?  @map("linkedin_url")
-  githubUrl    String?  @map("github_url")
-  portfolioUrl String?  @map("portfolio_url")
-  summary      String?
-  skills       String[]
-  targetRoles  String[] @map("target_roles")
-  experience   Json?
-  education    Json?
-  updatedAt    DateTime @default(now()) @map("updated_at")
+model JobProfile {
+  id              String   @id @default(uuid()) @db.Uuid
+  name            String?
+  email           String?
+  phone           String?
+  summary         String?
+  skills          String[]
+  experience      Json?
+  education       Json?
+  targetRoles     String[] @map("target_roles")
+  targetLocations String[] @map("target_locations")
+  resumeText      String?  @map("resume_text")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
-  @@map("user_profile")
+  @@map("job_profiles")
 }
 
 model GitHubProfile {
