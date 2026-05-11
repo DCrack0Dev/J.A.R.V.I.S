@@ -282,4 +282,121 @@ export class JobsService implements OnModuleInit {
     if (!listing) throw new NotFoundException('Listing not found');
     return listing;
   }
+
+  // --- COVER LETTER & APPLICATIONS ---
+
+  async generateCoverLetter(jobId: string) {
+    const job = await this.getListingById(jobId);
+    const profile = await this.getProfile();
+
+    if (!profile) throw new NotFoundException('No profile found. Please set up profile first.');
+
+    const prompt = `Write a tailored, professional cover letter for this job application. Sound human, confident, and specific — not generic. Use the candidate's actual skills and experience. 
+      Candidate name: ${profile.name} 
+      Candidate summary: ${profile.summary} 
+      Candidate skills: ${profile.skills.join(', ')} 
+      Job title: ${job.title} 
+      Company: ${job.company} 
+      Job description (first 600 chars): ${job.description?.substring(0, 600)} 
+      Format: opening paragraph, 2 body paragraphs, closing paragraph. No placeholders like [Your Name]. Sign off with the candidate's actual name.`;
+
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: 'openai/gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 1000,
+      });
+
+      const coverLetter = response.choices[0].message.content?.trim() || '';
+
+      const application = await this.prisma.jobApplication.upsert({
+        where: { jobListingId: jobId },
+        update: {
+          coverLetter,
+        },
+        create: {
+          jobListingId: jobId,
+          coverLetter,
+          status: 'draft',
+        },
+      });
+
+      return {
+        jobId,
+        applicationId: application.id,
+        coverLetter,
+      };
+    } catch (error) {
+      this.logger.error(`Cover letter generation failed for job ${jobId}: ${error.message}`);
+      throw error;
+    }
+  }
+
+  async updateApplicationStatus(applicationId: string, status: string, notes?: string) {
+    const validStatuses = ['draft', 'applied', 'interview', 'offer', 'rejected'];
+    if (!validStatuses.includes(status)) {
+      throw new UnprocessableEntityException(`Invalid status: ${status}`);
+    }
+
+    const updateData: any = { status };
+    if (notes !== undefined) updateData.notes = notes;
+    if (status === 'applied') updateData.appliedAt = new Date();
+
+    return await this.prisma.jobApplication.update({
+      where: { id: applicationId },
+      data: updateData,
+    });
+  }
+
+  async getApplications() {
+    return await this.prisma.jobApplication.findMany({
+      include: { listing: true },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async getApplicationById(id: string) {
+    const application = await this.prisma.jobApplication.findUnique({
+      where: { id },
+      include: { listing: true },
+    });
+    if (!application) throw new NotFoundException('Application not found');
+    return application;
+  }
+
+  async updateCoverLetter(id: string, content: string) {
+    return await this.prisma.jobApplication.update({
+      where: { id },
+      data: { coverLetter: content },
+    });
+  }
+
+  async getApplicationSummary() {
+    const total = await this.prisma.jobApplication.count();
+    const counts = await this.prisma.jobApplication.groupBy({
+      by: ['status'],
+      _count: {
+        _all: true,
+      },
+    });
+
+    const byStatus = {
+      draft: 0,
+      applied: 0,
+      interview: 0,
+      offer: 0,
+      rejected: 0,
+    };
+
+    counts.forEach((c) => {
+      if (c.status in byStatus) {
+        byStatus[c.status as keyof typeof byStatus] = c._count._all;
+      }
+    });
+
+    return {
+      total,
+      byStatus,
+    };
+  }
 }

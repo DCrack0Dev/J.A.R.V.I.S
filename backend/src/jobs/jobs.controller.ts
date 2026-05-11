@@ -94,4 +94,46 @@ export class JobsController {
   async getListing(@Param('id') id: string) {
     return await this.jobsService.getListingById(id);
   }
+
+  // --- APPLICATIONS ---
+
+  @Post('listings/:id/apply')
+  @ApiOperation({ summary: 'Generate a tailored cover letter and create a draft application' })
+  async apply(@Param('id') id: string) {
+    return await this.jobsService.generateCoverLetter(id);
+  }
+
+  @Get('applications/summary')
+  @ApiOperation({ summary: 'Get summary of all applications by status' })
+  async getSummary() {
+    return await this.jobsService.getApplicationSummary();
+  }
+
+  @Get('applications')
+  @ApiOperation({ summary: 'Get all job applications' })
+  async getApplications() {
+    return await this.jobsService.getApplications();
+  }
+
+  @Get('applications/:id')
+  @ApiOperation({ summary: 'Get a single application detail with job listing' })
+  async getApplication(@Param('id') id: string) {
+    return await this.jobsService.getApplicationById(id);
+  }
+
+  @Put('applications/:id/status')
+  @ApiOperation({ summary: 'Update the status of an application' })
+  async updateStatus(
+    @Param('id') id: string,
+    @Body('status') status: string,
+    @Body('notes') notes?: string,
+  ) {
+    return await this.jobsService.updateApplicationStatus(id, status, notes);
+  }
+
+  @Put('applications/:id/cover-letter')
+  @ApiOperation({ summary: 'Edit the cover letter content' })
+  async updateCoverLetter(@Param('id') id: string, @Body('content') content: string) {
+    return await this.jobsService.updateCoverLetter(id, content);
+  }
 }
