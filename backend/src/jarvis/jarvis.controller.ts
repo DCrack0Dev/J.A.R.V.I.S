@@ -14,6 +14,10 @@ export class JarvisController {
     @Body() body: { userId?: string; query: string }
   ) {
     const userId = body.userId || '00000000-0000-0000-0000-000000000001';
-    return this.jarvisService.processQuery(userId, sessionId, body.query);
+    try {
+      return await this.jarvisService.query(userId, sessionId, body.query);
+    } catch (error) {
+      return { reply: "I'm having a bit of trouble connecting to my cognitive cores right now, Boss. Give me a second." };
+    }
   }
 }
