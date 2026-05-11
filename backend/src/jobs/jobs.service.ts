@@ -1,7 +1,7 @@
 import { Injectable, Logger, UnprocessableEntityException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import OpenAI from 'openai';
-import * as pdf from 'pdf-parse';
+const pdf = require('pdf-parse');
 
 @Injectable()
 export class JobsService {
