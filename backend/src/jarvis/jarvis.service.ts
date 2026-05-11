@@ -85,6 +85,7 @@ export class JarvisService {
     const history = await this.contextService.getSessionContext(sessionId);
     
     try {
+      this.logger.log(`Calling OpenRouter with model: anthropic/claude-3.5-sonnet`);
       const response = await axios.post(
         this.openRouterUrl,
         {
@@ -99,9 +100,12 @@ export class JarvisService {
         {
           headers: { 
             Authorization: `Bearer ${this.apiKey}`,
-            'X-Title': 'Jarvis Unified Pipeline'
+            'X-Title': 'Jarvis Unified Pipeline',
+            'HTTP-Referer': 'http://localhost:3000', // Added for OpenRouter
+            'Content-Type': 'application/json'
           },
           responseType: 'stream',
+          timeout: 30000, // 30 second timeout
         },
       );
 
