@@ -3,7 +3,7 @@ import JobHunterPanel from './components/JobHunterPanel';
 import GitHubPanel from './components/GitHubPanel';
 import ContextBar from './components/ContextBar';
 
-const SESSION_ID = crypto.randomUUID();
+const SESSION_ID = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
 const SCHEDULE = {
   mon: {
     theme: "Networking & Market Structure",
@@ -647,62 +647,65 @@ export default function App() {
   }, []);
 
   // ── FEATURE 2: SMART SELF-WAKE SYSTEM ───────────────────────
-  useEffect(() => {
-    const checkScheduleAlerts = () => {
-      if (!schedule) return;
-      const n = getNow();
-      const todayBlocks = schedule[n.day]?.blocks || [];
-      if (todayBlocks.length === 0) return;
+  const checkScheduleAlerts = useCallback(() => {
+    if (!schedule) return;
+    const n = getNow();
+    const todayBlocks = schedule[n.day]?.blocks || [];
+    if (todayBlocks.length === 0) return;
 
-      const firstBlock = todayBlocks[0];
-      const nextUpcoming = todayBlocks.find(b => toMin(b.start) > n.totalMinutes);
-      
-      const minsUntilFirst = toMin(firstBlock.start) - n.totalMinutes;
-      const minsUntilNext = nextUpcoming ? toMin(nextUpcoming.start) - n.totalMinutes : Infinity;
+    const firstBlock = todayBlocks[0];
+    const nextUpcoming = todayBlocks.find(b => toMin(b.start) > n.totalMinutes);
+    
+    const minsUntilFirst = toMin(firstBlock.start) - n.totalMinutes;
+    const minsUntilNext = nextUpcoming ? toMin(nextUpcoming.start) - n.totalMinutes : Infinity;
 
-      let triggerWake = false;
-      let alertMsg = "";
-      let blockId = "";
+    let triggerWake = false;
+    let alertMsg = "";
+    let blockId = "";
 
-      // Scenarios
-      if (minsUntilFirst === 60) {
-        triggerWake = true;
-        blockId = `pre-day-${firstBlock.label}`;
-        alertMsg = `Good morning Boss. Your day starts in one hour with ${firstBlock.label} at ${firstBlock.start}. Time to get up.`;
-      } else if (minsUntilFirst === 0) {
-        triggerWake = true;
-        blockId = `start-day-${firstBlock.label}`;
-        alertMsg = `Boss, ${firstBlock.label} is starting now. Let's go.`;
-      } else if (nextUpcoming && minsUntilNext <= 10 && minsUntilNext > 0) {
-        triggerWake = true;
-        blockId = `soon-${nextUpcoming.label}`;
-        alertMsg = `Heads up Boss — ${nextUpcoming.label} starts in ${minsUntilNext} minutes. ${nextUpcoming.label} block: ${nextUpcoming.start} to ${nextUpcoming.end}.`;
-      } else if (nextUpcoming && minsUntilNext === 0) {
-        triggerWake = true;
-        blockId = `start-${nextUpcoming.label}`;
-        alertMsg = `Boss, ${nextUpcoming.label} is starting now. Let's go.`;
-      }
+    // Scenarios
+    if (minsUntilFirst === 60) {
+      triggerWake = true;
+      blockId = `pre-day-${firstBlock.label}`;
+      alertMsg = `Good morning Boss. Your day starts in one hour with ${firstBlock.label} at ${firstBlock.start}. Time to get up.`;
+    } else if (minsUntilFirst === 0) {
+      triggerWake = true;
+      blockId = `start-day-${firstBlock.label}`;
+      alertMsg = `Boss, ${firstBlock.label} is starting now. Let's go.`;
+    } else if (nextUpcoming && minsUntilNext <= 10 && minsUntilNext > 0) {
+      triggerWake = true;
+      blockId = `soon-${nextUpcoming.label}`;
+      alertMsg = `Heads up Boss — ${nextUpcoming.label} starts in ${minsUntilNext} minutes. ${nextUpcoming.label} block: ${nextUpcoming.start} to ${nextUpcoming.end}.`;
+    } else if (nextUpcoming && minsUntilNext === 0) {
+      triggerWake = true;
+      blockId = `start-${nextUpcoming.label}`;
+      alertMsg = `Boss, ${nextUpcoming.label} is starting now. Let's go.`;
+    }
 
-      if (triggerWake && lastAcknowledgedBlock !== blockId) {
-        const currentCount = alertCount[blockId] || 0;
-        if (currentCount < 3) {
-          if (!isAwakeRef.current) {
-            setIsAwake(true);
-            setSleepReason("block_alert");
-            setWakeFlash(true);
-            setTimeout(() => setWakeFlash(false), 400);
-          }
-          speak(alertMsg, startListeningRef.current);
-          setAlertCount(prev => ({ ...prev, [blockId]: currentCount + 1 }));
+    if (triggerWake && lastAcknowledgedBlock !== blockId) {
+      const currentCount = alertCount[blockId] || 0;
+      if (currentCount < 3) {
+        if (!isAwakeRef.current) {
+          setIsAwake(true);
+          setSleepReason("block_alert");
+          setWakeFlash(true);
+          setTimeout(() => setWakeFlash(false), 400);
         }
+        speak(alertMsg, startListeningRef.current);
+        setAlertCount(prev => ({ ...prev, [blockId]: currentCount + 1 }));
       }
-    };
-
-    // Run every 60 seconds
-    const interval = setInterval(checkScheduleAlerts, 60000);
-    checkScheduleAlerts(); // Initial check
-    return () => clearInterval(interval);
+    }
   }, [schedule, lastAcknowledgedBlock, alertCount, speak]);
+
+  useEffect(() => {
+    const interval = setInterval(checkScheduleAlerts, 60000);
+    return () => clearInterval(interval);
+  }, [checkScheduleAlerts]);
+
+  // Initial check on mount or when schedule loads
+  useEffect(() => {
+    if (schedule) checkScheduleAlerts();
+  }, [schedule]);
 
   // ── Schedule helpers ──────────────────────────────────────
   const now = getNow();

@@ -2,15 +2,13 @@
   "version": 2,
   "builds": [
     {
-      "src": "voice-app/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    },
-    {
       "src": "backend/src/main.ts",
       "use": "@vercel/node"
+    },
+    {
+      "src": "voice-app/package.json",
+      "use": "@vercel/static-build",
+      "config": { "distDir": "dist" }
     }
   ],
   "rewrites": [
