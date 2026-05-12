@@ -15,7 +15,7 @@ const GitHubPanel = () => {
 
   const fetchData = async () => {
     try {
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
       const [pRes, rRes] = await Promise.all([
         fetch(`${baseUrl}/api/github/profile`),
         fetch(`${baseUrl}/api/github/repos`)
@@ -32,7 +32,7 @@ const GitHubPanel = () => {
   const handleSync = async () => {
     setSyncing(true);
     try {
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
       await fetch(`${baseUrl}/api/github/sync`, { method: 'POST' });
       await fetchData();
     } finally {
@@ -44,7 +44,7 @@ const GitHubPanel = () => {
     setEditingRepo(repoFullName);
     setIsGenerating(true);
     try {
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
       const res = await fetch(`${baseUrl}/api/github/readme/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -59,7 +59,7 @@ const GitHubPanel = () => {
 
   const handleScoreHealth = async (repoFullName) => {
     try {
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
       const [owner, repo] = repoFullName.split('/');
       const res = await fetch(`${baseUrl}/api/github/health/score/${owner}/${repo}`, {
         method: 'POST'
@@ -74,7 +74,7 @@ const GitHubPanel = () => {
 
   const handleSyncRepo = async (repoFullName) => {
     try {
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
       const [owner, repo] = repoFullName.split('/');
       const res = await fetch(`${baseUrl}/api/github/sync/${owner}/${repo}`, {
         method: 'POST'
@@ -90,7 +90,7 @@ const GitHubPanel = () => {
   const handleApplyReadme = async () => {
     if (!editingRepo) return;
     try {
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
       const res = await fetch(`${baseUrl}/api/github/readme/apply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -15,23 +15,36 @@ export class ContextService {
   ) {}
 
   async getSessionContext(sessionId: string) {
-    const redis = this.redis.getClient();
-    const key = `context:${sessionId}`;
-    const messages = await redis.lrange(key, 0, 19);
-    return messages.map(m => JSON.parse(m));
+    try {
+      const redis = this.redis.getClient();
+      const key = `context:${sessionId}`;
+      const messages = await redis.lrange(key, 0, 19);
+      return messages.map(m => JSON.parse(m));
+    } catch (error) {
+      this.logger.warn(`Failed to fetch session context from Redis: ${error.message}`);
+      return [];
+    }
   }
 
   async addMessageToContext(sessionId: string, message: { role: string; content: string }) {
-    const redis = this.redis.getClient();
-    const key = `context:${sessionId}`;
-    
-    await redis.rpush(key, JSON.stringify(message));
-    await redis.ltrim(key, -20, -1);
-    await redis.expire(key, 7200); // 2 hours
+    try {
+      const redis = this.redis.getClient();
+      const key = `context:${sessionId}`;
+      
+      await redis.rpush(key, JSON.stringify(message));
+      await redis.ltrim(key, -20, -1);
+      await redis.expire(key, 7200); // 2 hours
+    } catch (error) {
+      this.logger.warn(`Failed to store message in Redis: ${error.message}`);
+    }
 
     // Analyze intent/sentiment/entities if it's a user message
     if (message.role === 'user') {
-      return await this.analyzeAndStoreContext(sessionId, message.content);
+      try {
+        return await this.analyzeAndStoreContext(sessionId, message.content);
+      } catch (error) {
+        this.logger.warn(`Context analysis failed: ${error.message}`);
+      }
     }
   }
 

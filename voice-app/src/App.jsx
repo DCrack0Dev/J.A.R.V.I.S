@@ -625,7 +625,7 @@ export default function App() {
   useEffect(() => {
     const initSchedule = async () => {
       try {
-        const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+        const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
         const checkRes = await fetch(`${baseUrl}/api/schedule`);
         if (!checkRes.ok) throw new Error('Fetch failed');
         const existingData = await checkRes.json();
@@ -860,7 +860,7 @@ export default function App() {
 
   const askModel = useCallback(async (said) => {
     try {
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
       const res = await fetch(`${baseUrl}/api/jarvis/query/${SESSION_ID}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -890,7 +890,7 @@ export default function App() {
     setResponse("RESTRUCTURING YOUR SCHEDULE...");
     
     try {
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
       const res = await fetch(`${baseUrl}/api/schedule/edit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

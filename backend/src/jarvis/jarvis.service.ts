@@ -127,7 +127,7 @@ export class JarvisService {
           { role: 'user', content: message }
         ],
         stream: true,
-        max_tokens: 2000,
+        max_tokens: 50,
       });
 
       let fullReply = '';
@@ -145,6 +145,7 @@ export class JarvisService {
 
     } catch (error) {
       this.logger.error(`JARVIS query failed: ${error.message}`);
+      console.error('Full Error:', error);
       return { 
         reply: "Apologies, Boss. It seems my core communication link is experiencing some interference. I'm still here, but I might need a moment to recalibrate." 
       };

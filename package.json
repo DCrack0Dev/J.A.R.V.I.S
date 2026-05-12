@@ -1,0 +1,25 @@
+{
+  "name": "daily-assistant(leo)",
+  "version": "1.0.0",
+  "description": "This is a test README updated via J.A.R.V.I.S at 2026-05-11T20:49:15.880Z.",
+  "main": "index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev --prefix voice-app\" \"npm run start:dev --prefix backend\"",
+    "install-all": "npm install && npm install --prefix voice-app && npm install --prefix backend",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DCrack0Dev/J.A.R.V.I.S.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/DCrack0Dev/J.A.R.V.I.S/issues"
+  },
+  "homepage": "https://github.com/DCrack0Dev/J.A.R.V.I.S#readme",
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

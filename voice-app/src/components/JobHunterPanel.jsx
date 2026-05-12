@@ -21,7 +21,7 @@ const JobHunterPanel = () => {
     setLoading(true);
     try {
       // Use the live Vercel URL if in production, otherwise localhost
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
       
       const [jobsRes, profileRes] = await Promise.all([
         fetch(`${baseUrl}/api/jobs`),
@@ -59,7 +59,7 @@ const JobHunterPanel = () => {
     formData.append('file', file);
 
     try {
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
       const res = await fetch(`${baseUrl}/api/jobs/resume/upload`, {
         method: 'POST',
         body: formData,
@@ -77,10 +77,7 @@ const JobHunterPanel = () => {
       }
     } catch (error) {
       console.error('Upload failed', error);
-      const isLocal = window.location.hostname === 'localhost';
-      const errorMessage = isLocal 
-        ? `Network error: ${error.message}. Is your backend running on port 3000?` 
-        : `Cloud Network Error: ${error.message}. The Jarvis backend is temporarily unreachable on Vercel.`;
+      const errorMessage = `Cloud Network Error: ${error.message}. The Jarvis backend is temporarily unreachable on Vercel.`;
       alert(errorMessage);
     } finally {
       setIsUploading(false);
@@ -95,7 +92,7 @@ const JobHunterPanel = () => {
         return;
       }
 
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
       const res = await fetch(`${baseUrl}/api/jobs/profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -117,7 +114,7 @@ const JobHunterPanel = () => {
   const handleRunScan = async () => {
     setIsScanning(true);
     try {
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
       const res = await fetch(`${baseUrl}/api/jobs/scan`, { method: 'POST' });
       if (res.ok) {
         alert('Job scan initiated! Check back in a few minutes.');
@@ -131,7 +128,7 @@ const JobHunterPanel = () => {
 
   const fetchJobs = async () => {
     try {
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
       const response = await fetch(`${baseUrl}/api/jobs`);
       const data = await response.json();
       setJobs(data);
@@ -145,7 +142,7 @@ const JobHunterPanel = () => {
   const handleApply = async (jobId) => {
     setApplyingId(jobId);
     try {
-      const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
+      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
       const response = await fetch(`${baseUrl}/api/jobs/apply/${jobId}`, {
         method: 'POST',
       });

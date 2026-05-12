@@ -88,7 +88,7 @@ export class ScheduleService {
         {
           headers: {
             Authorization: `Bearer ${this.apiKey}`,
-            'HTTP-Referer': 'http://localhost:3000',
+            'HTTP-Referer': 'https://j-a-r-v-i-s-liard.vercel.app',
             'X-Title': 'Jarvis Schedule Architect',
           },
         },
@@ -154,7 +154,7 @@ export class ScheduleService {
         {
           headers: {
             Authorization: `Bearer ${this.apiKey}`,
-            'HTTP-Referer': 'http://localhost:3000',
+            'HTTP-Referer': 'https://j-a-r-v-i-s-liard.vercel.app',
             'X-Title': 'Jarvis Schedule Editor',
           },
         },

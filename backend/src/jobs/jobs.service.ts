@@ -216,6 +216,13 @@ export class JobsService implements OnModuleInit {
     }
   }
 
+  async saveScrapedJobs(jobs: any[]): Promise<void> {
+    this.logger.log(`Processing ${jobs.length} scraped jobs...`);
+    for (const job of jobs) {
+      await this.saveJobListing(job);
+    }
+  }
+
   async scoreJobMatch(jobId: string) {
     const job = await this.prisma.jobListing.findUnique({ where: { id: jobId } });
     const profile = await this.getProfile();
