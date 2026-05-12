@@ -7,6 +7,7 @@
   ],
   "scripts": {
     "build:backend": "npm run build --workspace=backend",
-    "build:frontend": "npm run build --workspace=voice-app"
+    "build:frontend": "npm run build --workspace=voice-app",
+    "vercel-build": "npm run build:frontend && npm run build:backend"
   }
 }
