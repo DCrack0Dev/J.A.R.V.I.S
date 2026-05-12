@@ -3,7 +3,35 @@ import JobHunterPanel from './components/JobHunterPanel';
 import GitHubPanel from './components/GitHubPanel';
 import ContextBar from './components/ContextBar';
 
-const SESSION_ID = crypto.randomUUID();
+// ── Constants & Helpers (Define before component to avoid TDZ) ────────────────
+const DAYS = ["sun","mon","tue","wed","thu","fri","sat"];
+const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+const SESSION_ID = (typeof crypto !== 'undefined' && crypto.randomUUID) 
+  ? crypto.randomUUID() 
+  : Math.random().toString(36).substring(2);
+
+function toMin(t) { 
+  if (!t) return 0;
+  const [h,m] = t.split(":").map(Number); 
+  return h*60+m; 
+}
+
+function pad(n) { return String(n).padStart(2,"0"); }
+
+function getNow() {
+  const d = new Date();
+  const dayIndex = d.getDay();
+  return {
+    day: DAYS[dayIndex] || "mon", 
+    dayName: DAY_NAMES[dayIndex] || "Monday",
+    totalMinutes: d.getHours()*60+d.getMinutes(),
+    h: d.getHours(), 
+    m: d.getMinutes(), 
+    s: d.getSeconds(),
+  };
+}
+
 const SCHEDULE = {
   mon: {
     theme: "Networking & Market Structure",
@@ -148,19 +176,8 @@ const SCHEDULE = {
   },
 };
 
-const DAYS = ["sun","mon","tue","wed","thu","fri","sat"];
-const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
-function toMin(t) { const [h,m] = t.split(":").map(Number); return h*60+m; }
-function pad(n) { return String(n).padStart(2,"0"); }
-
-function getNow() {
-  const d = new Date();
-  return {
-    day: DAYS[d.getDay()], dayName: DAY_NAMES[d.getDay()],
-    totalMinutes: d.getHours()*60+d.getMinutes(),
-    h: d.getHours(), m: d.getMinutes(), s: d.getSeconds(),
-  };
-}
+const hasSpeechRecog = typeof window !== "undefined" && (window.webkitSpeechRecognition || window.SpeechRecognition);
+const hasSpeechSynth = typeof window !== "undefined" && window.speechSynthesis;
 
 // ── Styles ────────────────────────────────────────────────────
 const css = `
@@ -566,11 +583,6 @@ body::before {
 }
 `;
 
-const WAKE_WORDS = ["hey tebogo", "tebogo", "hey coach", "coach", "assistant", "hey assistant"];
-const hasSpeechRecog =
-  typeof window !== "undefined" && ("webkitSpeechRecognition" in window || "SpeechRecognition" in window);
-const hasSpeechSynth = typeof window !== "undefined" && "speechSynthesis" in window;
-
 export default function App() {
   const [schedule, setSchedule] = useState(null);
   const [orbState, setOrbState] = useState("idle");
@@ -581,10 +593,8 @@ export default function App() {
   const [context, setContext] = useState(null);
   const [history, setHistory] = useState([]);
   const [tick, setTick] = useState(0);
-  const [view, setView] = useState(getNow().day); 
+  const [view, setView] = useState(() => getNow().day); 
   const [isRedesigning, setIsRedesigning] = useState(false);
-  const [redesignInstructions, setRedesignInstructions] = useState("");
-  const [showRedesignModal, setShowRedesignModal] = useState(false);
 
   // NEW FEATURE 1 & 2 STATE
   const [isAwake, setIsAwake] = useState(true);
@@ -617,6 +627,7 @@ export default function App() {
       try {
         const baseUrl = window.location.hostname === 'localhost' ? 'http://localhost:3000' : '';
         const checkRes = await fetch(`${baseUrl}/api/schedule`);
+        if (!checkRes.ok) throw new Error('Fetch failed');
         const existingData = await checkRes.json();
         
         if (!existingData || Object.keys(existingData).length === 0) {
@@ -644,6 +655,72 @@ export default function App() {
   useEffect(() => {
     const id = setInterval(() => setTick(t => t + 1), 1000);
     return () => clearInterval(id);
+  }, []);
+
+  // ── Speech synthesis ──────────────────────────────────────
+  const speak = useCallback((text, onDone) => {
+    if (!hasSpeechSynth) return;
+    window.speechSynthesis.cancel();
+    
+    speakingRef.current = true;
+    orbStateRef.current = "speaking";
+    
+    setOrbState("speaking");
+    setResponse(text);
+    setCurrentWordIndex(-1);
+
+    const u = new window.SpeechSynthesisUtterance(text);
+    u.rate = 1.05; u.pitch = 1.0; u.volume = 1.0;
+    
+    u.onboundary = (event) => {
+      if (event.name === 'word') {
+        const spokenPart = text.substring(0, event.charIndex);
+        const words = spokenPart.trim().split(/\s+/);
+        setCurrentWordIndex(spokenPart.trim() === "" ? 0 : words.length);
+      }
+    };
+
+    u.onstart = () => {
+      speakingRef.current = true;
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.onend = null;
+          recognitionRef.current.stop();
+        } catch (_) {}
+      }
+      listeningRef.current = false;
+    };
+    u.onend = () => {
+      speakingRef.current = false;
+      if (isAwakeRef.current) {
+        orbStateRef.current = "listening";
+        setOrbState("listening");
+        setTimeout(() => {
+          if (startedRef.current && !speakingRef.current && isAwakeRef.current) {
+            startListeningRef.current && startListeningRef.current();
+          }
+        }, 200);
+      } else {
+        setOrbState("idle");
+      }
+      onDone && onDone();
+    };
+    u.onerror = () => {
+      speakingRef.current = false;
+      if (isAwakeRef.current) {
+        orbStateRef.current = "listening";
+        setOrbState("listening");
+        setTimeout(() => {
+          if (startedRef.current && !speakingRef.current && isAwakeRef.current) {
+            startListeningRef.current && startListeningRef.current();
+          }
+        }, 200);
+      } else {
+        setOrbState("idle");
+      }
+      onDone && onDone();
+    };
+    window.speechSynthesis.speak(u);
   }, []);
 
   // ── FEATURE 2: SMART SELF-WAKE SYSTEM ───────────────────────
@@ -698,9 +775,7 @@ export default function App() {
       }
     };
 
-    // Run every 60 seconds
     const interval = setInterval(checkScheduleAlerts, 60000);
-    checkScheduleAlerts(); // Initial check
     return () => clearInterval(interval);
   }, [schedule, lastAcknowledgedBlock, alertCount, speak]);
 
@@ -772,8 +847,6 @@ export default function App() {
     
     let briefing = `Good morning Boss. Today is ${n.dayName}, theme is ${todayData.theme}. It's ${pad(n.h)}:${pad(n.m)}. `;
     briefing += `Your first three blocks are: ${firstThree}. `;
-    
-    // Add high-priority alerts placeholder
     briefing += `I'm monitoring your career and github status. `;
     briefing += `One more thing: The fact that you're up means you're already ahead. Let's win the day.`;
 
@@ -784,72 +857,6 @@ export default function App() {
     }
     speak(briefing, startListeningRef.current);
   }, [blocks, todayData, speak]);
-
-  // ── Speech synthesis ──────────────────────────────────────
-  const speak = useCallback((text, onDone) => {
-    if (!hasSpeechSynth) return;
-    window.speechSynthesis.cancel();
-    
-    speakingRef.current = true;
-    orbStateRef.current = "speaking";
-    
-    setOrbState("speaking");
-    setResponse(text);
-    setCurrentWordIndex(-1);
-
-    const u = new window.SpeechSynthesisUtterance(text);
-    u.rate = 1.05; u.pitch = 1.0; u.volume = 1.0;
-    
-    u.onboundary = (event) => {
-      if (event.name === 'word') {
-        const spokenPart = text.substring(0, event.charIndex);
-        const words = spokenPart.trim().split(/\s+/);
-        setCurrentWordIndex(spokenPart.trim() === "" ? 0 : words.length);
-      }
-    };
-
-    u.onstart = () => {
-      speakingRef.current = true;
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.onend = null;
-          recognitionRef.current.stop();
-        } catch (_) {}
-      }
-      listeningRef.current = false;
-    };
-    u.onend = () => {
-      speakingRef.current = false;
-      if (isAwakeRef.current) {
-        orbStateRef.current = "listening";
-        setOrbState("listening");
-        setTimeout(() => {
-          if (startedRef.current && !speakingRef.current && isAwakeRef.current) {
-            startListeningRef.current();
-          }
-        }, 200);
-      } else {
-        setOrbState("idle");
-      }
-      onDone && onDone();
-    };
-    u.onerror = () => {
-      speakingRef.current = false;
-      if (isAwakeRef.current) {
-        orbStateRef.current = "listening";
-        setOrbState("listening");
-        setTimeout(() => {
-          if (startedRef.current && !speakingRef.current && isAwakeRef.current) {
-            startListeningRef.current();
-          }
-        }, 200);
-      } else {
-        setOrbState("idle");
-      }
-      onDone && onDone();
-    };
-    window.speechSynthesis.speak(u);
-  }, []);
 
   const askModel = useCallback(async (said) => {
     try {
@@ -889,10 +896,11 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           command, 
-          currentSchedule: schedule[now.day], 
+          currentSchedule: schedule?.[now.day] || SCHEDULE[now.day], 
           targetDay: now.day 
         })
       });
+      if (!res.ok) throw new Error('Edit failed');
       const data = await res.json();
       setSchedule(prev => ({ ...prev, [now.day]: data.updatedSchedule }));
       speak(`Done Boss. I've updated your ${now.dayName} schedule. ${data.summary}`, startListeningRef.current);
@@ -938,13 +946,7 @@ export default function App() {
       if (!said || said.length < 2) return;
 
       setTranscript(said);
-      
-      // Stop recognition
-      try {
-        rec.onend = null;
-        rec.stop();
-      } catch (_) {}
-      
+      try { rec.onend = null; rec.stop(); } catch (_) {}
       listeningRef.current = false;
       if (handleSpeechRef.current) handleSpeechRef.current(said);
     };
@@ -963,7 +965,7 @@ export default function App() {
       if (!speakingRef.current && orbStateRef.current !== "thinking" && startedRef.current && isAwakeRef.current) {
         setTimeout(() => {
           if (!speakingRef.current && startedRef.current && isAwakeRef.current) {
-            startListeningRef.current();
+            startListeningRef.current && startListeningRef.current();
           }
         }, 300);
       }
@@ -976,15 +978,8 @@ export default function App() {
     startListeningRef.current = startListening;
   }, [startListening]);
 
-  useEffect(() => {
-    if (activeBlockRef.current) {
-      activeBlockRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }, [view, started]);
-
   // ── Intent handler ────────────────────────────────────────
   const handleSpeech = useCallback(async (said) => {
-    // Acknowledge alerts
     if (currentBlock && said.length > 3) {
       setLastAcknowledgedBlock(currentBlock.label);
     }
@@ -994,40 +989,22 @@ export default function App() {
       listeningRef.current = false;
     }
 
-    // Voice commands for Sleep/Wake
     const sleepIntent = /jarvis sleep|go to sleep|offline/i.test(said);
     const wakeIntent = /jarvis wake|wake up|online/i.test(said);
     const morningIntent = /good morning jarvis/i.test(said);
 
-    if (sleepIntent) {
-      toggleSleep(false);
-      return;
-    }
-    if (wakeIntent) {
-      toggleSleep(true);
-      return;
-    }
-    if (morningIntent) {
-      morningBriefing();
-      return;
-    }
+    if (sleepIntent) { toggleSleep(false); return; }
+    if (wakeIntent) { toggleSleep(true); return; }
+    if (morningIntent) { morningBriefing(); return; }
 
-    // Schedule Restructuring intents
     const restructureIntent = /move .* to .*|change .* to .*|swap .* and .*|remove .*|add .* at .*|push everything back|redesign today|restructure my schedule|rebuild my week|i need more time for/i.test(said);
-    if (restructureIntent) {
-      handleScheduleEdit(said);
-      return;
-    }
+    if (restructureIntent) { handleScheduleEdit(said); return; }
 
-    // Other existing intents...
     const timeQ = /what time|time is it/i.test(said);
     const currentQ = /what am i doing|what am i supposed to do|what am i on|current block|right now|now/i.test(said);
     const nextQ = /what.*next|next block|coming up|after this|up next/i.test(said);
 
-    if (timeQ) {
-      speak(`It is ${pad(now.h)}:${pad(now.m)}.`, startListeningRef.current);
-      return;
-    }
+    if (timeQ) { speak(`It is ${pad(now.h)}:${pad(now.m)}.`, startListeningRef.current); return; }
     if (currentQ) {
       let msg = `Today is ${now.dayName}, theme is ${todayData.theme}. `;
       if (currentBlock) {
@@ -1046,7 +1023,6 @@ export default function App() {
       return;
     }
 
-    // Free-form to model
     orbStateRef.current = "thinking";
     setOrbState("thinking");
     setResponse("THINKING...");
@@ -1054,10 +1030,7 @@ export default function App() {
     
     try {
       const modelText = await askModel(said);
-      if (modelText) {
-        speak(modelText, startListeningRef.current);
-        return;
-      }
+      if (modelText) { speak(modelText, startListeningRef.current); return; }
       throw new Error("Model returned no text");
     } catch (err) {
       speak("My intelligence core is offline, but I'm still monitoring your schedule.", startListeningRef.current);
@@ -1068,7 +1041,6 @@ export default function App() {
     handleSpeechRef.current = handleSpeech;
   }, [handleSpeech]);
 
-  // ── Start session ─────────────────────────────────────────
   const startSession = useCallback(() => {
     setStarted(true);
     setIsAwake(true);
@@ -1077,6 +1049,12 @@ export default function App() {
     let welcome = `Hey Tebogo. Systems online. Theme is ${currentTheme}. I'm listening.`;
     speak(welcome, startListeningRef.current);
   }, [schedule, speak]);
+
+  useEffect(() => {
+    if (activeBlockRef.current) {
+      activeBlockRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, [view, started]);
 
   const orbIcon = !isAwake ? "💤"
     : orbState === "idle" ? "🎙️"
