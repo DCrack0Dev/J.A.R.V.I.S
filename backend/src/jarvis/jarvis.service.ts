@@ -3,7 +3,30 @@ import { ContextService } from '../context/context.service';
 import { RealTimeIntelligenceService } from '../intelligence/intelligence.service';
 import { IntelligenceGateway } from '../intelligence/intelligence.gateway';
 import { ScheduleService } from '../schedule/schedule.service';
+import { WebSearchService } from './web-search.service';
 import OpenAI from 'openai';
+
+// --- Tool definitions for OpenRouter --- 
+const TOOLS: any[] = [ 
+  { 
+    type: 'function', 
+    function: { 
+      name: 'search_web', 
+      description: 
+        'Search the internet for current, real-time information. Use this for: news, sports results, prices, recent events, weather, anything that may have changed recently.', 
+      parameters: { 
+        type: 'object', 
+        properties: { 
+          query: { 
+            type: 'string', 
+            description: 'The search query to look up', 
+          }, 
+        }, 
+        required: ['query'], 
+      }, 
+    }, 
+  }, 
+];
 
 @Injectable()
 export class JarvisService {
@@ -15,6 +38,7 @@ export class JarvisService {
     private intelligenceService: RealTimeIntelligenceService,
     private gateway: IntelligenceGateway,
     private scheduleService: ScheduleService,
+    private webSearchService: WebSearchService,
   ) {
     this.openai = new OpenAI({
       apiKey: process.env.OPENROUTER_API_KEY,
@@ -87,7 +111,7 @@ export class JarvisService {
 
   /**
    * Main query method for JARVIS.
-   * Assembles context and calls OpenAI GPT-4o.
+   * Assembles context and calls OpenAI GPT-4o-mini with tool support.
    */
   async query(userId: string, sessionId: string, message: string) {
     this.logger.log(`JARVIS query received for session ${sessionId}`);
@@ -112,31 +136,82 @@ export class JarvisService {
     Current date and time: ${currentDateTime} 
     Current day: ${currentDay} 
  
-    SCHEDULE CONTEXT (use this when answering schedule questions): 
+    SCHEDULE CONTEXT: 
     ${scheduleContext} 
  
-    LIVE INTELLIGENCE (use if relevant, ignore if not): 
+    LIVE INTELLIGENCE: 
     ${intelligenceContext} 
+
+    WEB SEARCH CAPABILITY:
+    You have access to a web search tool. Use it whenever the user asks about:
+    - Current events, news, sports scores, or real-time rankings.
+    - Live prices (crypto, stocks, products) that are not in the intelligence context.
+    - Recent software releases, updates, or tech launches.
+    - Anything time-sensitive that occurred after your training data.
+    
+    When you search, present the findings naturally. Do not say "according to my search" or "as of my training data." Just give the answer.
  
     If live intelligence is unavailable, answer without it — never mention that systems are offline.`;
 
       const history = await this.contextService.getSessionContext(sessionId);
+      const messages: any[] = [
+        { role: 'system', content: systemPrompt },
+        ...history.slice(-10),
+        { role: 'user', content: message }
+      ];
 
-      this.logger.log('Calling OpenAI GPT-4o...');
-      const response = await this.openai.chat.completions.create({
-        model: 'openai/gpt-4o',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...history.slice(-10),
-          { role: 'user', content: message }
-        ],
+      this.logger.log('Calling OpenRouter (GPT-4o-mini) with tool detection...');
+      
+      // First call (non-streaming) to check for tool calls
+      const firstResponse = await this.openai.chat.completions.create({
+        model: 'openai/gpt-4o-mini',
+        messages,
+        tools: TOOLS,
+        tool_choice: 'auto',
+      });
+
+      const firstChoice = firstResponse.choices[0];
+
+      // If the model wants to use a tool
+      if (firstChoice.message.tool_calls && firstChoice.message.tool_calls.length > 0) {
+        const toolCall = firstChoice.message.tool_calls[0];
+        
+        if (toolCall.type === 'function') {
+          const toolName = toolCall.function.name;
+          const toolArgs = JSON.parse(toolCall.function.arguments);
+
+          this.logger.log(`JARVIS is using tool: ${toolName} with query: "${toolArgs.query}"`);
+
+          let toolResult = '';
+          if (toolName === 'search_web') {
+            toolResult = await this.webSearchService.search(toolArgs.query);
+          }
+
+          // Add the tool result to the message history
+          messages.push(firstChoice.message);
+          messages.push({
+            role: 'tool',
+            tool_call_id: toolCall.id,
+            content: toolResult,
+          });
+
+          this.logger.log('Calling OpenRouter again with tool results (streaming)...');
+        }
+      } else {
+        // No tool needed, but we still want to stream the response for consistency
+        this.logger.log('No tool needed. Starting streaming response...');
+      }
+
+      // Final call (streaming) to get the actual content
+      const finalResponse = await this.openai.chat.completions.create({
+        model: 'openai/gpt-4o-mini',
+        messages,
         stream: true,
-        max_tokens: 50,
+        max_tokens: 1000,
       });
 
       let fullReply = '';
-      
-      for await (const chunk of response) {
+      for await (const chunk of finalResponse) {
         const content = chunk.choices[0]?.delta?.content || '';
         if (content) {
           fullReply += content;
