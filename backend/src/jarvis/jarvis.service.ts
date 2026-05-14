@@ -168,6 +168,7 @@ export class JarvisService {
         messages,
         tools: TOOLS,
         tool_choice: 'auto',
+        max_tokens: 100, // Keep it low for tool detection
       });
 
       const firstChoice = firstResponse.choices[0];
@@ -207,7 +208,7 @@ export class JarvisService {
         model: 'openai/gpt-4o-mini',
         messages,
         stream: true,
-        max_tokens: 1000,
+        max_tokens: 400, // Reduced to avoid credit issues
       });
 
       let fullReply = '';
