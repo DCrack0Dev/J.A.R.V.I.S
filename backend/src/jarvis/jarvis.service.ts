@@ -19,6 +19,10 @@ export class JarvisService {
     this.openai = new OpenAI({
       apiKey: process.env.OPENROUTER_API_KEY,
       baseURL: 'https://openrouter.ai/api/v1',
+      defaultHeaders: {
+        'HTTP-Referer': 'https://j-a-r-v-i-s-liard.vercel.app',
+        'X-Title': 'Jarvis Personal Assistant',
+      },
     });
   }
 

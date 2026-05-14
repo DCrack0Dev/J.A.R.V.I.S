@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 const GitHubPanel = () => {
   const [profile, setProfile] = useState(null);
   const [repos, setRepos] = useState([]);
@@ -15,10 +17,9 @@ const GitHubPanel = () => {
 
   const fetchData = async () => {
     try {
-      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
       const [pRes, rRes] = await Promise.all([
-        fetch(`${baseUrl}/api/github/profile`),
-        fetch(`${baseUrl}/api/github/repos`)
+        fetch(`${API_BASE_URL}/api/github/profile`),
+        fetch(`${API_BASE_URL}/api/github/repos`)
       ]);
       setProfile(await pRes.json());
       setRepos(await rRes.json());
@@ -32,8 +33,7 @@ const GitHubPanel = () => {
   const handleSync = async () => {
     setSyncing(true);
     try {
-      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
-      await fetch(`${baseUrl}/api/github/sync`, { method: 'POST' });
+      await fetch(`${API_BASE_URL}/api/github/sync`, { method: 'POST' });
       await fetchData();
     } finally {
       setSyncing(false);
@@ -44,8 +44,7 @@ const GitHubPanel = () => {
     setEditingRepo(repoFullName);
     setIsGenerating(true);
     try {
-      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
-      const res = await fetch(`${baseUrl}/api/github/readme/generate`, {
+      const res = await fetch(`${API_BASE_URL}/api/github/readme/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ repoFullName })
@@ -59,9 +58,8 @@ const GitHubPanel = () => {
 
   const handleScoreHealth = async (repoFullName) => {
     try {
-      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
       const [owner, repo] = repoFullName.split('/');
-      const res = await fetch(`${baseUrl}/api/github/health/score/${owner}/${repo}`, {
+      const res = await fetch(`${API_BASE_URL}/api/github/health/score/${owner}/${repo}`, {
         method: 'POST'
       });
       if (res.ok) {
@@ -74,9 +72,8 @@ const GitHubPanel = () => {
 
   const handleSyncRepo = async (repoFullName) => {
     try {
-      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
       const [owner, repo] = repoFullName.split('/');
-      const res = await fetch(`${baseUrl}/api/github/sync/${owner}/${repo}`, {
+      const res = await fetch(`${API_BASE_URL}/api/github/sync/${owner}/${repo}`, {
         method: 'POST'
       });
       if (res.ok) {
@@ -90,8 +87,7 @@ const GitHubPanel = () => {
   const handleApplyReadme = async () => {
     if (!editingRepo) return;
     try {
-      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
-      const res = await fetch(`${baseUrl}/api/github/readme/apply`, {
+      const res = await fetch(`${API_BASE_URL}/api/github/readme/apply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ repoFullName: editingRepo, content: draftReadme })

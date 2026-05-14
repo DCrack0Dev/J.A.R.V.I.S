@@ -11,6 +11,8 @@ const SESSION_ID = (typeof crypto !== 'undefined' && crypto.randomUUID)
   ? crypto.randomUUID() 
   : Math.random().toString(36).substring(2);
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 function toMin(t) { 
   if (!t) return 0;
   const [h,m] = t.split(":").map(Number); 
@@ -625,19 +627,18 @@ export default function App() {
   useEffect(() => {
     const initSchedule = async () => {
       try {
-        const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
-        const checkRes = await fetch(`${baseUrl}/api/schedule`);
+        const checkRes = await fetch(`${API_BASE_URL}/api/schedule`);
         if (!checkRes.ok) throw new Error('Fetch failed');
         const existingData = await checkRes.json();
         
         if (!existingData || Object.keys(existingData).length === 0) {
           console.log("Database schedule empty. Seeding initial data...");
-          await fetch(`${baseUrl}/api/schedule/seed`, {
+          await fetch(`${API_BASE_URL}/api/schedule/seed`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(SCHEDULE)
           });
-          const freshRes = await fetch(`${baseUrl}/api/schedule`);
+          const freshRes = await fetch(`${API_BASE_URL}/api/schedule`);
           const freshData = await freshRes.json();
           setSchedule(freshData);
         } else {
@@ -860,8 +861,7 @@ export default function App() {
 
   const askModel = useCallback(async (said) => {
     try {
-      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
-      const res = await fetch(`${baseUrl}/api/jarvis/query/${SESSION_ID}`, {
+      const res = await fetch(`${API_BASE_URL}/api/jarvis/query/${SESSION_ID}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -890,8 +890,7 @@ export default function App() {
     setResponse("RESTRUCTURING YOUR SCHEDULE...");
     
     try {
-      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
-      const res = await fetch(`${baseUrl}/api/schedule/edit`, {
+      const res = await fetch(`${API_BASE_URL}/api/schedule/edit`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

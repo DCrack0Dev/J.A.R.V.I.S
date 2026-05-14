@@ -13,6 +13,10 @@ export class JobsService implements OnModuleInit {
     this.openai = new OpenAI({
       apiKey: process.env.OPENROUTER_API_KEY,
       baseURL: 'https://openrouter.ai/api/v1',
+      defaultHeaders: {
+        'HTTP-Referer': 'https://j-a-r-v-i-s-liard.vercel.app',
+        'X-Title': 'Jarvis Job Hunter',
+      },
     });
   }
 

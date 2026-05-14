@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 const JobHunterPanel = () => {
   const [jobs, setJobs] = useState([]);
   const [profile, setProfile] = useState(null);
@@ -20,12 +22,9 @@ const JobHunterPanel = () => {
   const fetchInitialData = async () => {
     setLoading(true);
     try {
-      // Use the live Vercel URL if in production, otherwise localhost
-      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
-      
       const [jobsRes, profileRes] = await Promise.all([
-        fetch(`${baseUrl}/api/jobs`),
-        fetch(`${baseUrl}/api/jobs/profile`)
+        fetch(`${API_BASE_URL}/api/jobs`),
+        fetch(`${API_BASE_URL}/api/jobs/profile`)
       ]);
       
       const jobsData = await jobsRes.json();
@@ -59,8 +58,7 @@ const JobHunterPanel = () => {
     formData.append('file', file);
 
     try {
-      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
-      const res = await fetch(`${baseUrl}/api/jobs/resume/upload`, {
+      const res = await fetch(`${API_BASE_URL}/api/jobs/resume/upload`, {
         method: 'POST',
         body: formData,
       });
@@ -92,8 +90,7 @@ const JobHunterPanel = () => {
         return;
       }
 
-      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
-      const res = await fetch(`${baseUrl}/api/jobs/profile`, {
+      const res = await fetch(`${API_BASE_URL}/api/jobs/profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -114,8 +111,7 @@ const JobHunterPanel = () => {
   const handleRunScan = async () => {
     setIsScanning(true);
     try {
-      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
-      const res = await fetch(`${baseUrl}/api/jobs/scan`, { method: 'POST' });
+      const res = await fetch(`${API_BASE_URL}/api/jobs/scan`, { method: 'POST' });
       if (res.ok) {
         alert('Job scan initiated! Check back in a few minutes.');
       }
@@ -128,8 +124,7 @@ const JobHunterPanel = () => {
 
   const fetchJobs = async () => {
     try {
-      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
-      const response = await fetch(`${baseUrl}/api/jobs`);
+      const response = await fetch(`${API_BASE_URL}/api/jobs`);
       const data = await response.json();
       setJobs(data);
     } catch (error) {
@@ -142,8 +137,7 @@ const JobHunterPanel = () => {
   const handleApply = async (jobId) => {
     setApplyingId(jobId);
     try {
-      const baseUrl = 'https://j-a-r-v-i-s-liard.vercel.app';
-      const response = await fetch(`${baseUrl}/api/jobs/apply/${jobId}`, {
+      const response = await fetch(`${API_BASE_URL}/api/jobs/apply/${jobId}`, {
         method: 'POST',
       });
       if (response.ok) {
