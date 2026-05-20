@@ -861,6 +861,7 @@ export default function App() {
 
   const askModel = useCallback(async (said) => {
     try {
+      console.log(`Sending query to JARVIS: "${said}"`);
       const res = await fetch(`${API_BASE_URL}/api/jarvis/query/${SESSION_ID}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -870,15 +871,21 @@ export default function App() {
         }),
       });
 
-      if (!res.ok) return null;
+      if (!res.ok) {
+        console.error(`Backend returned error ${res.status}: ${res.statusText}`);
+        return null;
+      }
+      
       const data = await res.json();
       const reply = data.reply;
       
       if (reply) {
         setHistory(prev => [...prev, { role: "user", content: said }, { role: "assistant", content: reply }]);
+        return reply;
       }
-      return reply;
-    } catch (_) {
+      return null;
+    } catch (err) {
+      console.error("Connection to JARVIS backend failed:", err);
       return null;
     }
   }, []);
@@ -1032,7 +1039,8 @@ export default function App() {
       if (modelText) { speak(modelText, startListeningRef.current); return; }
       throw new Error("Model returned no text");
     } catch (err) {
-      speak("My intelligence core is offline, but I'm still monitoring your schedule.", startListeningRef.current);
+      console.warn("JARVIS Fallback triggered:", err.message);
+      speak("My primary intelligence core is experiencing connectivity issues, Boss. I'm still here monitoring your schedule, but my advanced cognitive functions are currently restricted.", startListeningRef.current);
     }
   }, [now, todayData, currentBlock, nextBlock, remaining, speak, askModel, toggleSleep, morningBriefing, handleScheduleEdit]);
 

@@ -160,6 +160,9 @@ export class JarvisService {
         { role: 'user', content: message }
       ];
 
+      // SAVE USER MESSAGE TO CONTEXT
+      await this.contextService.addMessageToContext(sessionId, { role: 'user', content: message });
+
       this.logger.log('Calling OpenRouter (GPT-4o-mini) with tool detection...');
       
       // First call (non-streaming) to check for tool calls
@@ -168,8 +171,12 @@ export class JarvisService {
         messages,
         tools: TOOLS,
         tool_choice: 'auto',
-        max_tokens: 100, // Keep it low for tool detection
+        max_tokens: 400, // Increased to allow full response if no tool is needed
       });
+
+      if (!firstResponse.choices || firstResponse.choices.length === 0) {
+        throw new Error('No response from AI model');
+      }
 
       const firstChoice = firstResponse.choices[0];
 
@@ -197,31 +204,41 @@ export class JarvisService {
           });
 
           this.logger.log('Calling OpenRouter again with tool results (streaming)...');
+
+          // Final call (streaming) to get the actual content after tool use
+          const finalResponse = await this.openai.chat.completions.create({
+            model: 'openai/gpt-4o-mini',
+            messages,
+            stream: true,
+            max_tokens: 400,
+          });
+
+          let fullReply = '';
+          for await (const chunk of finalResponse) {
+            const content = chunk.choices[0]?.delta?.content || '';
+            if (content) {
+              fullReply += content;
+              this.gateway.streamJarvisResponse(content);
+            }
+          }
+
+          // SAVE AI RESPONSE TO CONTEXT
+          await this.contextService.addMessageToContext(sessionId, { role: 'assistant', content: fullReply });
+
+          this.logger.log('JARVIS response complete');
+          return { reply: fullReply };
         }
-      } else {
-        // No tool needed, but we still want to stream the response for consistency
-        this.logger.log('No tool needed. Starting streaming response...');
       }
 
-      // Final call (streaming) to get the actual content
-      const finalResponse = await this.openai.chat.completions.create({
-        model: 'openai/gpt-4o-mini',
-        messages,
-        stream: true,
-        max_tokens: 400, // Reduced to avoid credit issues
-      });
+      // If no tool was needed, use the response from the first call
+      const reply = firstChoice.message.content || '';
+      this.gateway.streamJarvisResponse(reply); // Stream it once for UI consistency
+      
+      // SAVE AI RESPONSE TO CONTEXT
+      await this.contextService.addMessageToContext(sessionId, { role: 'assistant', content: reply });
 
-      let fullReply = '';
-      for await (const chunk of finalResponse) {
-        const content = chunk.choices[0]?.delta?.content || '';
-        if (content) {
-          fullReply += content;
-          this.gateway.streamJarvisResponse(content);
-        }
-      }
-
-      this.logger.log('JARVIS response complete');
-      return { reply: fullReply };
+      this.logger.log('JARVIS response complete (no tool used)');
+      return { reply };
 
     } catch (error) {
       this.logger.error(`JARVIS query failed: ${error.message}`);
