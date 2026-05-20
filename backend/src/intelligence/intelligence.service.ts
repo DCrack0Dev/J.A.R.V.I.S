@@ -1,18 +1,36 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import axios from 'axios';
 import { RedisService } from '../redis.service';
 import { PrismaService } from '../prisma.service';
 import { IntelligenceGateway } from './intelligence.gateway';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 
 @Injectable()
-export class RealTimeIntelligenceService {
+export class RealTimeIntelligenceService implements OnModuleInit {
   private readonly logger = new Logger(RealTimeIntelligenceService.name);
 
   constructor(
     private redis: RedisService,
     private prisma: PrismaService,
     private gateway: IntelligenceGateway,
+    @InjectQueue('intelligence-cron') private intelligenceQueue: Queue,
   ) {}
+
+  async onModuleInit() {
+    this.logger.log('Initializing Intelligence Cron Job...');
+    // Add repeatable job (every 15 minutes)
+    await this.intelligenceQueue.add(
+      'proactive-check',
+      {},
+      {
+        repeat: {
+          pattern: '*/15 * * * *', // Every 15 minutes
+        },
+        removeOnComplete: true,
+      },
+    );
+  }
 
   // PROVIDER 1: CRYPTO
   async getCryptoData() {
