@@ -171,7 +171,7 @@ export class JarvisService {
         messages,
         tools: TOOLS,
         tool_choice: 'auto',
-        max_tokens: 400, // Increased to allow full response if no tool is needed
+        max_tokens: 200, // Reduced from 400 to accommodate low credits
       });
 
       if (!firstResponse.choices || firstResponse.choices.length === 0) {
@@ -210,7 +210,7 @@ export class JarvisService {
             model: 'openai/gpt-4o-mini',
             messages,
             stream: true,
-            max_tokens: 400,
+            max_tokens: 200, // Reduced from 400
           });
 
           let fullReply = '';
@@ -242,7 +242,13 @@ export class JarvisService {
 
     } catch (error) {
       this.logger.error(`JARVIS query failed: ${error.message}`);
-      console.error('Full Error:', error);
+      
+      if (error.status === 402) {
+        return { 
+          reply: "Apologies, Boss. My advanced cognitive processing requires additional energy units (credits). You might want to check the OpenRouter dashboard to keep my systems at 100%." 
+        };
+      }
+
       return { 
         reply: "Apologies, Boss. It seems my core communication link is experiencing some interference. I'm still here, but I might need a moment to recalibrate." 
       };
