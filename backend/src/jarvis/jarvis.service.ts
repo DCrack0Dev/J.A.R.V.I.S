@@ -144,10 +144,12 @@ export class JarvisService {
    */
   async query(userId: string, sessionId: string, message: string) {
     this.logger.log(`JARVIS query received for session ${sessionId}`);
+    this.logger.log(`Checking GEMINI_API_KEY: ${process.env.GEMINI_API_KEY ? 'Present' : 'MISSING'}`);
 
-    if (this.gemini) {
+    if (this.gemini && process.env.GEMINI_API_KEY) {
       return this.queryGemini(userId, sessionId, message);
     } else {
+      this.logger.warn('Gemini engine not initialized or API key missing. Falling back to OpenRouter.');
       return this.queryOpenRouter(userId, sessionId, message);
     }
   }
