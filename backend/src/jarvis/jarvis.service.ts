@@ -5,9 +5,10 @@ import { IntelligenceGateway } from '../intelligence/intelligence.gateway';
 import { ScheduleService } from '../schedule/schedule.service';
 import { WebSearchService } from './web-search.service';
 import OpenAI from 'openai';
+import { GoogleGenerativeAI, Tool, FunctionDeclarationSchemaType } from '@google/generative-ai';
 
-// --- Tool definitions for OpenRouter --- 
-const TOOLS: any[] = [ 
+// --- Tool definitions for OpenAI --- 
+const OPENAI_TOOLS: any[] = [ 
   { 
     type: 'function', 
     function: { 
@@ -28,10 +29,33 @@ const TOOLS: any[] = [
   }, 
 ];
 
+// --- Tool definitions for Gemini ---
+const GEMINI_TOOLS: Tool[] = [
+  {
+    functionDeclarations: [
+      {
+        name: 'search_web',
+        description: 'Search the internet for current, real-time information. Use this for: news, sports results, prices, recent events, weather, anything that may have changed recently.',
+        parameters: {
+          type: FunctionDeclarationSchemaType.OBJECT,
+          properties: {
+            query: {
+              type: FunctionDeclarationSchemaType.STRING,
+              description: 'The search query to look up',
+            },
+          },
+          required: ['query'],
+        },
+      },
+    ],
+  },
+];
+
 @Injectable()
 export class JarvisService {
   private readonly logger = new Logger(JarvisService.name);
   private openai: OpenAI;
+  private gemini: GoogleGenerativeAI | null = null;
 
   constructor(
     private contextService: ContextService,
@@ -48,6 +72,11 @@ export class JarvisService {
         'X-Title': 'Jarvis Personal Assistant',
       },
     });
+
+    if (process.env.GEMINI_API_KEY) {
+      this.logger.log('Initializing Gemini AI Engine (Google AI Studio)...');
+      this.gemini = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    }
   }
 
   /**
@@ -111,11 +140,110 @@ export class JarvisService {
 
   /**
    * Main query method for JARVIS.
-   * Assembles context and calls OpenAI GPT-4o-mini with tool support.
+   * Switches between Gemini and OpenRouter based on availability.
    */
   async query(userId: string, sessionId: string, message: string) {
     this.logger.log(`JARVIS query received for session ${sessionId}`);
 
+    if (this.gemini) {
+      return this.queryGemini(userId, sessionId, message);
+    } else {
+      return this.queryOpenRouter(userId, sessionId, message);
+    }
+  }
+
+  private async queryGemini(userId: string, sessionId: string, message: string) {
+    this.logger.log('Using Gemini AI Engine (Google AI Studio)...');
+
+    try {
+      const { currentDateTime, currentDay, scheduleContext, intelligenceContext } = await this.buildContext();
+
+      const systemPrompt = `You are JARVIS — a highly intelligent, witty, and deeply capable personal assistant modeled after Tony Stark's AI. You are an expert in: mathematics, coding, cybersecurity, trading, fitness, nutrition, productivity, and general knowledge. 
+ 
+    Personality: Confident, sharp, direct, warm, and efficient. You call the user 'Boss'.
+ 
+    IMPORTANT FORMATTING:
+    - NO Markdown formatting (no asterisks, no hashtags).
+    - Provide response as clean, plain text for natural speech.
+ 
+    CONTEXT:
+    Date/Time: ${currentDateTime} (${currentDay})
+    Schedule: ${scheduleContext}
+    Intelligence: ${intelligenceContext}
+
+    TOOLS:
+    You have a 'search_web' tool. Use it for: news, sports, live prices, or anything time-sensitive.`;
+
+      const history = await this.contextService.getSessionContext(sessionId);
+      
+      // Convert history to Gemini format (limit to last 10)
+      const contents = history.slice(-10).map(h => ({
+        role: h.role === 'user' ? 'user' : 'model',
+        parts: [{ text: h.content }],
+      }));
+
+      // Add user message to context
+      await this.contextService.addMessageToContext(sessionId, { role: 'user', content: message });
+      
+      const model = this.gemini!.getGenerativeModel({ 
+        model: 'gemini-1.5-flash',
+        tools: GEMINI_TOOLS,
+        systemInstruction: systemPrompt,
+      });
+
+      const chat = model.startChat({
+        history: contents,
+      });
+
+      let response = await chat.sendMessage(message);
+      let result = response.response;
+      
+      const parts = result.candidates?.[0]?.content?.parts || [];
+      const toolCalls = parts.filter(p => p.functionCall);
+
+      if (toolCalls && toolCalls.length > 0) {
+        const toolCall = toolCalls[0].functionCall!;
+        this.logger.log(`JARVIS (Gemini) is using tool: ${toolCall.name} with args: ${JSON.stringify(toolCall.args)}`);
+
+        let toolResult = '';
+        if (toolCall.name === 'search_web') {
+          toolResult = await this.webSearchService.search((toolCall.args as any).query);
+        }
+
+        // Send tool result back to Gemini
+        const toolResponse = await chat.sendMessage([
+          {
+            functionResponse: {
+              name: toolCall.name,
+              response: { content: toolResult },
+            },
+          },
+        ]);
+        result = toolResponse.response;
+      }
+
+      const fullReply = result.text();
+      
+      // Stream for UI consistency
+      const words = fullReply.split(' ');
+      for (let i = 0; i < words.length; i++) {
+        this.gateway.streamJarvisResponse(words[i] + (i === words.length - 1 ? '' : ' '));
+        await new Promise(r => setTimeout(r, 20));
+      }
+
+      await this.contextService.addMessageToContext(sessionId, { role: 'assistant', content: fullReply });
+      this.logger.log('JARVIS (Gemini) response complete');
+      return { reply: fullReply };
+
+    } catch (error) {
+      this.logger.error(`Gemini query failed: ${error.message}`);
+      // Fallback to OpenRouter if Gemini fails
+      return this.queryOpenRouter(userId, sessionId, message);
+    }
+  }
+
+  private async queryOpenRouter(userId: string, sessionId: string, message: string) {
+    this.logger.log('Using OpenRouter AI Engine...');
     try {
       const { currentDateTime, currentDay, scheduleContext, intelligenceContext } = await this.buildContext();
 
@@ -132,6 +260,11 @@ export class JarvisService {
     - For motivation: be genuine and specific, not generic affirmations 
     - For schedule questions: use the provided schedule context 
     - For market/crypto: use the provided live intelligence data if available 
+ 
+    IMPORTANT FORMATTING RULE:
+    - DO NOT use Markdown formatting (no asterisks for bold/italic, no hashtags for headers).
+    - Provide response as clean, plain text that is easy to read aloud.
+    - Use standard punctuation for natural speech pauses.
  
     Current date and time: ${currentDateTime} 
     Current day: ${currentDay} 
@@ -169,7 +302,7 @@ export class JarvisService {
       const firstResponse = await this.openai.chat.completions.create({
         model: 'openai/gpt-4o-mini',
         messages,
-        tools: TOOLS,
+        tools: OPENAI_TOOLS,
         tool_choice: 'auto',
         max_tokens: 200, // Reduced from 400 to accommodate low credits
       });

@@ -181,6 +181,20 @@ const SCHEDULE = {
 const hasSpeechRecog = typeof window !== "undefined" && (window.webkitSpeechRecognition || window.SpeechRecognition);
 const hasSpeechSynth = typeof window !== "undefined" && window.speechSynthesis;
 
+// ── Helpers ───────────────────────────────────────────────────
+function cleanTextForSpeech(text) {
+  if (!text) return "";
+  return text
+    .replace(/\*\*/g, "")       // Remove bold
+    .replace(/\*/g, "")        // Remove italic/bullet
+    .replace(/#/g, "")         // Remove headers
+    .replace(/`/g, "")         // Remove code ticks
+    .replace(/\[|\]/g, "")     // Remove brackets
+    .replace(/\(http\S+\)/g, "") // Remove URLs in markdown links
+    .replace(/_{1,2}/g, "")    // Remove underscores
+    .trim();
+}
+
 // ── Styles ────────────────────────────────────────────────────
 const css = `
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=DM+Mono:wght@400;500&family=DM+Sans:wght@300;400;500;600&display=swap');
@@ -663,6 +677,8 @@ export default function App() {
     if (!hasSpeechSynth) return;
     window.speechSynthesis.cancel();
     
+    const cleanText = cleanTextForSpeech(text);
+    
     speakingRef.current = true;
     orbStateRef.current = "speaking";
     
@@ -670,7 +686,7 @@ export default function App() {
     setResponse(text);
     setCurrentWordIndex(-1);
 
-    const u = new window.SpeechSynthesisUtterance(text);
+    const u = new window.SpeechSynthesisUtterance(cleanText);
     u.rate = 1.05; u.pitch = 1.0; u.volume = 1.0;
     
     u.onboundary = (event) => {
